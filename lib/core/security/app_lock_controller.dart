@@ -22,8 +22,10 @@ class AppLockController {
     try {
       return _localAuth.authenticate(
         localizedReason: 'Unlock to open your notes',
-        biometricOnly: false,
-        persistAcrossBackgrounding: true,
+        options: const AuthenticationOptions(
+          biometricOnly: false,
+          stickyAuth: true,
+        ),
       );
     } catch (_) {
       return true;

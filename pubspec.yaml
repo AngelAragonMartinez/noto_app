@@ -12,20 +12,23 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   cryptography: any
-  file_selector: any
+  file_selector: '>=1.1.0'
   flutter_quill: ^11.5.0
-  flutter_riverpod: any
+  flutter_riverpod: '>=3.0.0'
   flutter_secure_storage: any
   font_awesome_flutter: ^10.8.0
   go_router: any
   intl: any
-  local_auth: any
+  local_auth: '>=2.3.0 <3.0.0'
   path: any
   path_provider: any
   sqflite_sqlcipher: any
   pdf: ^3.11.0
   uuid: any
   vsc_quill_delta_to_html: ^1.0.5
+
+dependency_overrides:
+  quill_native_bridge_windows: any
 
 dev_dependencies:
   flutter_test:

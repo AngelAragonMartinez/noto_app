@@ -32,6 +32,12 @@ require flutter
 info "Descargando dependencias de Flutter..."
 flutter pub get
 
+# Parche: quill_native_bridge_windows 0.0.2 usa GMEM_MOVEABLE que fue removida en win32 5.x
+QNBW="$HOME/.pub-cache/hosted/pub.dev/quill_native_bridge_windows-0.0.2/lib/quill_native_bridge_windows.dart"
+if [ -f "$QNBW" ]; then
+  sed -i 's/GlobalAlloc(GMEM_MOVEABLE,/GlobalAlloc(0x0002,/' "$QNBW"
+fi
+
 info "Compilando Noto en modo release (esto puede tardar unos minutos)..."
 flutter build linux --release
 
