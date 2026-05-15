@@ -4,7 +4,7 @@
 set -euo pipefail
 
 BINARY_NAME="noto"
-APP_ID="com.example.notes_app"
+APP_ID="io.github.AngelAragonMartinez.Noto"
 BUNDLE_DIR="build/linux/x64/release/bundle"
 INSTALL_DIR="/opt/$BINARY_NAME"
 INSTALL_BIN="/usr/local/bin/$BINARY_NAME"

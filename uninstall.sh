@@ -4,7 +4,7 @@
 set -euo pipefail
 
 BINARY_NAME="noto"
-APP_ID="com.example.notes_app"
+APP_ID="io.github.AngelAragonMartinez.Noto"
 
 red()   { echo -e "\033[0;31m$*\033[0m"; }
 green() { echo -e "\033[0;32m$*\033[0m"; }
@@ -19,7 +19,7 @@ fi
 info "Eliminando Noto..."
 
 rm -f  "/usr/local/bin/$BINARY_NAME"
-rm -rf "/usr/lib/$BINARY_NAME"
+rm -rf "/opt/$BINARY_NAME"
 rm -f  "/usr/share/applications/$BINARY_NAME.desktop"
 rm -f  "/usr/share/icons/hicolor/512x512/apps/$APP_ID.png"
 

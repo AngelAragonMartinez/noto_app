@@ -5,7 +5,7 @@ cd "$(dirname "$0")/.."
 
 INSTALL_DIR="/usr/local/lib/noto"
 BIN_LINK="/usr/local/bin/noto"
-ICON_DIR="/usr/share/icons/hicolor/256x256/apps"
+ICON_DIR="/usr/share/icons/hicolor/512x512/apps"
 DESKTOP_DIR="/usr/share/applications"
 
 if [[ $EUID -ne 0 ]]; then
