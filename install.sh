@@ -8,7 +8,7 @@ BINARY_NAME="noto"
 APP_ID="io.github.AngelAragonMartinez.Noto"
 BUNDLE_DIR="build/linux/x64/release/bundle"
 INSTALL_DIR="/opt/$BINARY_NAME"
-INSTALL_BIN="/usr/local/bin/$BINARY_NAME"
+INSTALL_BIN="/usr/bin/$BINARY_NAME"
 INSTALL_ICON="/usr/share/icons/hicolor/512x512/apps/$APP_ID.png"
 INSTALL_DESKTOP="/usr/share/applications/$BINARY_NAME.desktop"
 

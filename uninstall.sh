@@ -18,6 +18,7 @@ fi
 
 info "Eliminando Noto..."
 
+rm -f  "/usr/bin/$BINARY_NAME"
 rm -f  "/usr/local/bin/$BINARY_NAME"
 rm -rf "/opt/$BINARY_NAME"
 rm -f  "/usr/share/applications/$BINARY_NAME.desktop"

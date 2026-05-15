@@ -42,13 +42,7 @@ sudo ./install.sh
 ```
 
 Eso es todo. Noto aparece en el lanzador de aplicaciones como cualquier otra app instalada.  
-No es necesario reiniciar. Si el ícono no aparece de inmediato, cierra y vuelve a abrir el lanzador.
-
-> Si al escribir `noto` en la terminal aparece "command not found", añade `/usr/local/bin` a tu PATH:
-> ```bash
-> echo 'export PATH="/usr/local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc
-> ```
-
+No es necesario reiniciar. Si el ícono no aparece de inmediato, cierra y vuelve a abrir el lanzador.  
 Para desinstalar: `sudo ./uninstall.sh`
 
 ---
