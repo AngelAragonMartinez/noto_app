@@ -27,7 +27,7 @@ Notas locales para Linux con bóveda cifrada. Sin cuentas, sin sincronización e
 - Dependencias del sistema:
 
 ```bash
-sudo apt install -y cmake ninja-build pkg-config libgtk-3-dev \
+sudo apt install -y clang cmake ninja-build pkg-config libgtk-3-dev \
   libsecret-1-dev libjsoncpp-dev
 ```
 

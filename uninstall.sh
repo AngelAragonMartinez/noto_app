@@ -22,6 +22,7 @@ rm -f  "/usr/local/bin/$BINARY_NAME"
 rm -rf "/opt/$BINARY_NAME"
 rm -f  "/usr/share/applications/$BINARY_NAME.desktop"
 rm -f  "/usr/share/icons/hicolor/512x512/apps/$APP_ID.png"
+rm -f  "/usr/share/icons/hicolor/256x256/apps/$APP_ID.png"
 
 gtk-update-icon-cache -f -t /usr/share/icons/hicolor 2>/dev/null || true
 update-desktop-database /usr/share/applications 2>/dev/null || true
