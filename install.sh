@@ -85,6 +85,7 @@ chmod 644 "$INSTALL_ICON_256"
 mkdir -p "$(dirname "$INSTALL_DESKTOP")"
 cp linux/packaging/noto.desktop "$INSTALL_DESKTOP"
 sed -i "s|^Exec=.*|Exec=$INSTALL_BIN|" "$INSTALL_DESKTOP"
+chmod 644 "$INSTALL_DESKTOP"
 
 gtk-update-icon-cache -f -t /usr/share/icons/hicolor 2>/dev/null || true
 update-desktop-database "$(dirname "$INSTALL_DESKTOP")" 2>/dev/null || true
