@@ -4,6 +4,7 @@
 #ifdef GDK_WINDOWING_X11
 #include <gdk/gdkx.h>
 #endif
+#include <gdk-pixbuf/gdk-pixbuf.h>
 
 #include "flutter/generated_plugin_registrant.h"
 
@@ -53,6 +54,24 @@ static void my_application_activate(GApplication* application) {
   }
 
   gtk_window_set_default_size(window, 1280, 760);
+
+  // Load window icon from bundled Flutter assets.
+  gchar* exe_path = g_file_read_link("/proc/self/exe", NULL);
+  if (exe_path) {
+    gchar* exe_dir = g_path_get_dirname(exe_path);
+    gchar* icon_path = g_build_filename(
+        exe_dir, "data", "flutter_assets", "assets", "icon.png", NULL);
+    GError* icon_err = NULL;
+    GdkPixbuf* icon_pixbuf = gdk_pixbuf_new_from_file(icon_path, &icon_err);
+    if (icon_pixbuf) {
+      gtk_window_set_icon(window, icon_pixbuf);
+      g_object_unref(icon_pixbuf);
+    }
+    if (icon_err) g_clear_error(&icon_err);
+    g_free(icon_path);
+    g_free(exe_dir);
+    g_free(exe_path);
+  }
   gtk_window_set_default_icon_name(APPLICATION_ID);
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
@@ -137,11 +156,8 @@ static void my_application_class_init(MyApplicationClass* klass) {
 static void my_application_init(MyApplication* self) {}
 
 MyApplication* my_application_new() {
-  // Set the program name to the application ID, which helps various systems
-  // like GTK and desktop environments map this running application to its
-  // corresponding .desktop file. This ensures better integration by allowing
-  // the application to be recognized beyond its binary name.
-  g_set_prgname(APPLICATION_ID);
+  g_set_prgname("noto");
+  g_set_application_name("Noto");
 
   return MY_APPLICATION(g_object_new(my_application_get_type(),
                                      "application-id", APPLICATION_ID, "flags",

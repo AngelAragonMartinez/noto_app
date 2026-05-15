@@ -178,7 +178,7 @@ class NotesController extends StateNotifier<NotesState> {
           markerDone = false;
         }
       }
-      if (markerDone && hasGuide) {
+      if (markerDone) {
         return;
       }
 

@@ -4,7 +4,7 @@ project(runner LANGUAGES CXX)
 
 set(BINARY_NAME "noto")
 # Swap for your own ID before shipping (e.g. io.github.you.Noto).
-set(APPLICATION_ID "com.example.notes_app")
+set(APPLICATION_ID "io.github.AngelAragonMartinez.Noto")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.

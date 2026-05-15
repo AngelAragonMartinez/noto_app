@@ -6,6 +6,7 @@
 .pub/
 build/
 coverage/
+linux/flutter/ephemeral/
 *.iml
 
 # API docs
