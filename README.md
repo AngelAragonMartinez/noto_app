@@ -19,10 +19,12 @@ Notas locales para Linux con bóveda cifrada. Sin cuentas, sin sincronización e
 
 ---
 
-## Requisitos previos / Prerequisites
+## Instalación / Installation
 
-- [Flutter SDK](https://docs.flutter.dev/get-started/install/linux) ≥ 3.4  
-- Herramientas de compilación de Linux:
+### Requisitos previos / Prerequisites
+
+- [Flutter SDK](https://docs.flutter.dev/get-started/install/linux) ≥ 3.4
+- Dependencias del sistema:
 
 ```bash
 sudo apt install -y cmake ninja-build pkg-config libgtk-3-dev \
@@ -31,40 +33,26 @@ sudo apt install -y cmake ninja-build pkg-config libgtk-3-dev \
 
 > En otras distribuciones instala los paquetes equivalentes (`gtk3-devel`, `libsecret-devel`, etc.).
 
----
-
-## Instalación desde el código fuente / Build from source
+### Instalar con un solo comando / One-command install
 
 ```bash
-# 1. Clona el repositorio
 git clone https://github.com/AngelAragonMartinez/noto_app.git
 cd noto_app
-
-# 2. Descarga las dependencias
-flutter pub get
-
-# 3. Ejecuta en modo debug
-flutter run -d linux
-
-# 4. O compila en modo release
-flutter build linux --release
+sudo ./install.sh
 ```
 
-El binario queda en `build/linux/x64/release/bundle/`.
+Eso es todo. Noto aparece en el lanzador de aplicaciones como cualquier otra app instalada.  
+Para desinstalar: `sudo ./uninstall.sh`
 
 ---
 
-## Instalar en el sistema (entrada .desktop e ícono)
+## Compilar sin instalar / Build without installing
 
 ```bash
-flutter build linux --release
-cd build/linux/x64/release/bundle
-
-# Instala el binario, el .desktop y los íconos en las rutas XDG estándar
-cmake --install .
+flutter pub get
+flutter run -d linux          # modo debug
+flutter build linux --release # binario en build/linux/x64/release/bundle/
 ```
-
-Después de esto aparece **Noto** en el lanzador de aplicaciones.
 
 ---
 
@@ -78,24 +66,15 @@ La bóveda cifrada se almacena en:
 ```
 
 Los archivos exportados van por defecto a `~/.local/share/notes_app/exports/`.  
-Los archivos que exportes a otras carpetas **no se borran** cuando eliminas una nota.
+Al desinstalar Noto, tus notas **no se borran**.
 
 ---
 
 ## Seguridad
 
-La bóveda usa **AES-256-GCM**. Las claves se guardan en el llavero del sistema mediante `flutter_secure_storage` (Secret Service / libsecret en Linux). Los archivos exportados son texto plano — trátales como cualquier archivo sensible.
+La bóveda usa **AES-256-GCM**. Las claves se guardan en el llavero del sistema mediante `flutter_secure_storage`. Los archivos exportados son texto plano — trátales como cualquier archivo sensible.
 
 Si encuentras un problema de seguridad, abre un **security advisory privado** en GitHub en lugar de un issue público.
-
----
-
-## Publicar una release en GitHub
-
-```bash
-chmod +x scripts/publish_github.sh
-./scripts/publish_github.sh   # requiere `gh auth login`
-```
 
 ---
 
