@@ -1,39 +1,25 @@
 # Noto
 
-Notas locales para Linux con bóveda cifrada. Sin cuentas, sin sincronización en la nube.
-
-**Local notes for Linux with an encrypted vault. No accounts, no cloud sync.**
+Local encrypted notes for Linux. No accounts, no sync, no cloud.
 
 ---
 
-## Características / Features
+## Features
 
-- **Cifrado AES-256-GCM** para la bóveda y los adjuntos — las claves viven en el llavero del sistema operativo.
-- Editor de texto enriquecido (negrita, cursiva, listas, citas, bloques de código, imágenes en el cuerpo, etc.).
-- Adjuntos cifrados por nota.
-- Exportación a **PDF, RTF, Markdown, HTML, texto plano y JSON**.
-- Importación desde archivos de texto, Markdown, HTML y JSON.
-- Papelera con restauración y eliminación permanente.
-- Temas claro y oscuro. Interfaz en español e inglés.
-- Bloqueo biométrico opcional al abrir la app.
+- Encrypts your vault with **AES-256-GCM** — keys live in the OS keyring, never on disk in plaintext
+- Rich text editor: bold, italic, lists, code blocks, and inline images
+- Encrypted per-note attachments
+- Export to **PDF, RTF, Markdown, HTML, plain text,** and **JSON**
+- Import from text, Markdown, HTML, and JSON
+- Trash with restore and permanent delete
+- Light and dark themes · English and Spanish
+- Optional biometric lock on startup
 
 ---
 
-## Instalación / Installation
+## Install
 
-### Requisitos previos / Prerequisites
-
-- [Flutter SDK](https://docs.flutter.dev/get-started/install/linux) ≥ 3.4
-- Dependencias del sistema:
-
-```bash
-sudo apt install -y clang cmake ninja-build pkg-config libgtk-3-dev \
-  libsecret-1-dev libjsoncpp-dev
-```
-
-> En otras distribuciones instala los paquetes equivalentes (`gtk3-devel`, `libsecret-devel`, etc.).
-
-### Instalar con un solo comando / One-command install
+Requires **Flutter SDK ≥ 3.4** on a Debian/Ubuntu system.
 
 ```bash
 git clone https://github.com/AngelAragonMartinez/noto_app.git
@@ -41,44 +27,40 @@ cd noto_app
 sudo ./install.sh
 ```
 
-Eso es todo. Noto aparece en el lanzador de aplicaciones como cualquier otra app instalada.  
-Si no aparece de inmediato, reinicia sesión o el sistema para que el lanzador lo detecte.  
-Para desinstalar: `sudo ./uninstall.sh`
+The script installs system dependencies, builds Noto, and registers it in your app launcher.
+
+```bash
+sudo ./uninstall.sh   # to remove
+```
+
+> On other distributions, install the GTK 3, libsecret, and jsoncpp development packages before running the script.
 
 ---
 
-## Compilar sin instalar / Build without installing
+## Build without installing
 
 ```bash
 flutter pub get
-flutter run -d linux          # modo debug
-flutter build linux --release # binario en build/linux/x64/release/bundle/
+flutter run -d linux           # debug
+flutter build linux --release  # release build → build/linux/x64/release/bundle/
 ```
 
 ---
 
-## Dónde se guardan los datos
+## Your data
 
-La bóveda cifrada se almacena en:
+Notes live at `~/.local/share/notes_app/`. Uninstalling Noto leaves this folder untouched.
 
-```
-~/.local/share/notes_app/vault.enc
-~/.local/share/notes_app/attachments/
-```
-
-Los archivos exportados van por defecto a `~/.local/share/notes_app/exports/`.  
-Al desinstalar Noto, tus notas **no se borran**.
+Exported files are plaintext — handle them like any sensitive document.
 
 ---
 
-## Seguridad
+## Security
 
-La bóveda usa **AES-256-GCM**. Las claves se guardan en el llavero del sistema mediante `flutter_secure_storage`. Los archivos exportados son texto plano — trátales como cualquier archivo sensible.
-
-Si encuentras un problema de seguridad, abre un **security advisory privado** en GitHub en lugar de un issue público.
+To report a vulnerability, open a [private security advisory](https://github.com/AngelAragonMartinez/noto_app/security/advisories/new) on GitHub rather than a public issue.
 
 ---
 
-## Licencia / License
+## License
 
-MIT — ver [LICENSE](LICENSE).
+[MIT](LICENSE)
