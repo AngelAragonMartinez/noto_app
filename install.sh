@@ -68,7 +68,7 @@ info "Instalando en el sistema..."
 
 rm -rf "$INSTALL_DIR"
 cp -r "$BUNDLE_DIR/." "$INSTALL_DIR/"
-chmod +x "$INSTALL_DIR/$BINARY_NAME"
+chmod -R 755 "$INSTALL_DIR"
 
 ln -sf "$INSTALL_DIR/$BINARY_NAME" "$INSTALL_BIN"
 
