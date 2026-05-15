@@ -74,6 +74,13 @@ ln -sf "$INSTALL_DIR/$BINARY_NAME" "$INSTALL_BIN"
 
 mkdir -p "$(dirname "$INSTALL_ICON")"
 cp assets/icon.png "$INSTALL_ICON"
+chmod 644 "$INSTALL_ICON"
+
+# Also install a 256×256 copy for icon themes that look there first
+INSTALL_ICON_256="/usr/share/icons/hicolor/256x256/apps/$APP_ID.png"
+mkdir -p "$(dirname "$INSTALL_ICON_256")"
+cp assets/icon.png "$INSTALL_ICON_256"
+chmod 644 "$INSTALL_ICON_256"
 
 mkdir -p "$(dirname "$INSTALL_DESKTOP")"
 cp linux/packaging/noto.desktop "$INSTALL_DESKTOP"

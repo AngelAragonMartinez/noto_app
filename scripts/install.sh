@@ -57,6 +57,10 @@ ln -sf "$INSTALL_DIR/noto" "$BIN_LINK"
 echo "Instalando icono..."
 mkdir -p "$ICON_DIR"
 cp assets/icon.png "$ICON_DIR/io.github.AngelAragonMartinez.Noto.png"
+chmod 644 "$ICON_DIR/io.github.AngelAragonMartinez.Noto.png"
+mkdir -p /usr/share/icons/hicolor/256x256/apps
+cp assets/icon.png /usr/share/icons/hicolor/256x256/apps/io.github.AngelAragonMartinez.Noto.png
+chmod 644 /usr/share/icons/hicolor/256x256/apps/io.github.AngelAragonMartinez.Noto.png
 gtk-update-icon-cache /usr/share/icons/hicolor/ 2>/dev/null || true
 
 # 7. Instalar .desktop
