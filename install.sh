@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Noto — install script
-# Usage: chmod +x install.sh && ./install.sh
+# Usage: chmod +x install.sh && sudo ./install.sh
 set -euo pipefail
+cd "$(dirname "$0")"
 
 BINARY_NAME="noto"
 APP_ID="io.github.AngelAragonMartinez.Noto"
@@ -15,60 +16,71 @@ red()   { echo -e "\033[0;31m$*\033[0m"; }
 green() { echo -e "\033[0;32m$*\033[0m"; }
 info()  { echo -e "\033[0;34m:: $*\033[0m"; }
 
-require() {
-  command -v "$1" &>/dev/null || { red "Error: '$1' no encontrado. Instálalo y vuelve a intentarlo."; exit 1; }
-}
+# ── permisos ──────────────────────────────────────────────────────────────────
+if [[ $EUID -ne 0 ]]; then
+  red "Este script necesita permisos de administrador."
+  info "Vuelve a ejecutarlo con: sudo ./install.sh"
+  exit 1
+fi
+
+# Usuario real que ejecutó sudo (para correr Flutter sin root)
+REAL_USER="${SUDO_USER:-$USER}"
+REAL_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
+
+# ── buscar flutter ────────────────────────────────────────────────────────────
+info "Buscando Flutter..."
+FLUTTER_BIN=$(sudo -u "$REAL_USER" bash -lc 'command -v flutter 2>/dev/null || true')
+if [[ -z "$FLUTTER_BIN" ]]; then
+  for candidate in \
+    "$REAL_HOME/flutter/bin/flutter" \
+    "$REAL_HOME/development/flutter/bin/flutter" \
+    "/opt/flutter/bin/flutter" \
+    "/usr/local/flutter/bin/flutter"; do
+    if [[ -x "$candidate" ]]; then FLUTTER_BIN="$candidate"; break; fi
+  done
+fi
+if [[ -z "$FLUTTER_BIN" ]]; then
+  red "Error: Flutter no encontrado. Instálalo y asegúrate de que esté en el PATH de '$REAL_USER'."
+  exit 1
+fi
+info "Flutter encontrado: $FLUTTER_BIN"
 
 # ── dependencias del sistema ──────────────────────────────────────────────────
-info "Instalando dependencias del sistema (se pedirá contraseña)..."
-sudo apt install -y clang cmake ninja-build pkg-config libgtk-3-dev \
+info "Instalando dependencias del sistema..."
+apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev \
   libsecret-1-dev libjsoncpp-dev
 
-# ── checks ────────────────────────────────────────────────────────────────────
-info "Verificando requisitos..."
-require flutter
-
-# ── build (como usuario normal) ───────────────────────────────────────────────
+# ── build como usuario normal ─────────────────────────────────────────────────
 info "Descargando dependencias de Flutter..."
-flutter pub get
+sudo -u "$REAL_USER" "$FLUTTER_BIN" pub get
 
-# Parche: quill_native_bridge_windows 0.0.2 usa GMEM_MOVEABLE que fue removida en win32 5.x
-QNBW="$HOME/.pub-cache/hosted/pub.dev/quill_native_bridge_windows-0.0.2/lib/quill_native_bridge_windows.dart"
+# Parche: quill_native_bridge_windows 0.0.2 usa GMEM_MOVEABLE removida en win32 5.x
+QNBW="$REAL_HOME/.pub-cache/hosted/pub.dev/quill_native_bridge_windows-0.0.2/lib/quill_native_bridge_windows.dart"
 if [ -f "$QNBW" ]; then
   sed -i 's/GlobalAlloc(GMEM_MOVEABLE,/GlobalAlloc(0x0002,/' "$QNBW"
 fi
 
 info "Compilando Noto en modo release (esto puede tardar unos minutos)..."
-flutter build linux --release
+sudo -u "$REAL_USER" "$FLUTTER_BIN" build linux --release
 
-# ── instalar al sistema (requiere sudo) ───────────────────────────────────────
-info "Instalando en el sistema (se pedirá contraseña de administrador)..."
+# ── instalar en el sistema ────────────────────────────────────────────────────
+info "Instalando en el sistema..."
 
-sudo bash -c "
-  set -e
+rm -rf "$INSTALL_DIR"
+cp -r "$BUNDLE_DIR/." "$INSTALL_DIR/"
+chmod +x "$INSTALL_DIR/$BINARY_NAME"
 
-  # Copia el bundle completo a /opt/noto
-  rm -rf '$INSTALL_DIR'
-  cp -r '$BUNDLE_DIR/.' '$INSTALL_DIR/'
-  chmod +x '$INSTALL_DIR/$BINARY_NAME'
+ln -sf "$INSTALL_DIR/$BINARY_NAME" "$INSTALL_BIN"
 
-  # Enlace simbólico para lanzarlo desde cualquier terminal
-  ln -sf '$INSTALL_DIR/$BINARY_NAME' '$INSTALL_BIN'
+mkdir -p "$(dirname "$INSTALL_ICON")"
+cp assets/icon.png "$INSTALL_ICON"
 
-  # Ícono
-  mkdir -p '$(dirname $INSTALL_ICON)'
-  cp 'assets/icon.png' '$INSTALL_ICON'
+mkdir -p "$(dirname "$INSTALL_DESKTOP")"
+cp linux/packaging/noto.desktop "$INSTALL_DESKTOP"
+sed -i "s|^Exec=.*|Exec=$INSTALL_BIN|" "$INSTALL_DESKTOP"
 
-  # Entrada .desktop
-  mkdir -p '$(dirname $INSTALL_DESKTOP)'
-  cp 'linux/packaging/noto.desktop' '$INSTALL_DESKTOP'
-  sed -i 's|^Exec=.*|Exec=$INSTALL_BIN|' '$INSTALL_DESKTOP'
-  sed -i 's|^Icon=.*|Icon=$APP_ID|' '$INSTALL_DESKTOP'
-
-  # Actualizar cachés
-  gtk-update-icon-cache -f -t /usr/share/icons/hicolor 2>/dev/null || true
-  update-desktop-database '$(dirname $INSTALL_DESKTOP)' 2>/dev/null || true
-"
+gtk-update-icon-cache -f -t /usr/share/icons/hicolor 2>/dev/null || true
+update-desktop-database "$(dirname "$INSTALL_DESKTOP")" 2>/dev/null || true
 
 green ""
 green "✓ Noto instalado correctamente."
