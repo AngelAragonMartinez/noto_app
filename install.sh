@@ -6,11 +6,11 @@ set -euo pipefail
 BINARY_NAME="noto"
 APP_ID="com.example.notes_app"
 BUNDLE_DIR="build/linux/x64/release/bundle"
-INSTALL_BIN="/usr/local/bin"
-INSTALL_ICON="/usr/share/icons/hicolor/512x512/apps"
-INSTALL_DESKTOP="/usr/share/applications"
+INSTALL_DIR="/opt/$BINARY_NAME"
+INSTALL_BIN="/usr/local/bin/$BINARY_NAME"
+INSTALL_ICON="/usr/share/icons/hicolor/512x512/apps/$APP_ID.png"
+INSTALL_DESKTOP="/usr/share/applications/$BINARY_NAME.desktop"
 
-# ── helpers ──────────────────────────────────────────────────────────────────
 red()   { echo -e "\033[0;31m$*\033[0m"; }
 green() { echo -e "\033[0;32m$*\033[0m"; }
 info()  { echo -e "\033[0;34m:: $*\033[0m"; }
@@ -24,43 +24,41 @@ info "Verificando requisitos..."
 require flutter
 require cmake
 
-if [[ $EUID -ne 0 ]]; then
-  red "Este script necesita permisos de administrador."
-  info "Vuelve a ejecutarlo con: sudo ./install.sh"
-  exit 1
-fi
-
-# ── build ─────────────────────────────────────────────────────────────────────
-info "Descargando dependencias..."
+# ── build (como usuario normal) ───────────────────────────────────────────────
+info "Descargando dependencias de Flutter..."
 flutter pub get
 
-info "Compilando Noto (modo release)..."
+info "Compilando Noto en modo release (esto puede tardar unos minutos)..."
 flutter build linux --release
 
-# ── install ───────────────────────────────────────────────────────────────────
-info "Instalando binario en $INSTALL_BIN/$BINARY_NAME..."
-install -Dm755 "$BUNDLE_DIR/$BINARY_NAME" "$INSTALL_BIN/$BINARY_NAME"
+# ── instalar al sistema (requiere sudo) ───────────────────────────────────────
+info "Instalando en el sistema (se pedirá contraseña de administrador)..."
 
-# Copia todas las librerías y datos del bundle junto al binario
-NOTO_DATA_DIR="/usr/lib/$BINARY_NAME"
-info "Copiando librerías en $NOTO_DATA_DIR..."
-rm -rf "$NOTO_DATA_DIR"
-cp -r "$BUNDLE_DIR/." "$NOTO_DATA_DIR/"
-# El binario ya está en /usr/local/bin; el del bundle no hace falta ahí
-rm -f "$NOTO_DATA_DIR/$BINARY_NAME"
+sudo bash -c "
+  set -e
 
-# Actualiza el Exec= del .desktop para apuntar al binario instalado
-sed -i "s|^Exec=.*|Exec=$INSTALL_BIN/$BINARY_NAME|" linux/packaging/noto.desktop
+  # Copia el bundle completo a /opt/noto
+  rm -rf '$INSTALL_DIR'
+  cp -r '$BUNDLE_DIR/.' '$INSTALL_DIR/'
+  chmod +x '$INSTALL_DIR/$BINARY_NAME'
 
-info "Instalando ícono..."
-install -Dm644 assets/icon.png "$INSTALL_ICON/$APP_ID.png"
+  # Enlace simbólico para lanzarlo desde cualquier terminal
+  ln -sf '$INSTALL_DIR/$BINARY_NAME' '$INSTALL_BIN'
 
-info "Instalando entrada de escritorio..."
-install -Dm644 linux/packaging/noto.desktop "$INSTALL_DESKTOP/$BINARY_NAME.desktop"
+  # Ícono
+  mkdir -p '$(dirname $INSTALL_ICON)'
+  cp 'assets/icon.png' '$INSTALL_ICON'
 
-info "Actualizando cachés..."
-gtk-update-icon-cache -f -t /usr/share/icons/hicolor 2>/dev/null || true
-update-desktop-database "$INSTALL_DESKTOP" 2>/dev/null || true
+  # Entrada .desktop
+  mkdir -p '$(dirname $INSTALL_DESKTOP)'
+  cp 'linux/packaging/noto.desktop' '$INSTALL_DESKTOP'
+  sed -i 's|^Exec=.*|Exec=$INSTALL_BIN|' '$INSTALL_DESKTOP'
+  sed -i 's|^Icon=.*|Icon=$APP_ID|' '$INSTALL_DESKTOP'
+
+  # Actualizar cachés
+  gtk-update-icon-cache -f -t /usr/share/icons/hicolor 2>/dev/null || true
+  update-desktop-database '$(dirname $INSTALL_DESKTOP)' 2>/dev/null || true
+"
 
 green ""
 green "✓ Noto instalado correctamente."
