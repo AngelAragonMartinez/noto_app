@@ -1,0 +1,2 @@
+Hello from Noto import test.
+Second line.

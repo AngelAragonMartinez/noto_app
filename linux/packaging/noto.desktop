@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Noto
+GenericName=Notes
+Comment=Local, encrypted notes for Linux
+Categories=Office;TextEditor;
+Keywords=notes;markdown;editor;
+Exec=noto
+Icon=com.example.notes_app
+StartupNotify=true
+Terminal=false

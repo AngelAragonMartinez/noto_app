@@ -1,0 +1,39 @@
+name: notes_app
+description: "Noto — local encrypted notes for Linux (Flutter)."
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  cryptography: any
+  file_selector: any
+  flutter_quill: ^11.5.0
+  flutter_riverpod: any
+  flutter_secure_storage: any
+  font_awesome_flutter: ^10.8.0
+  go_router: any
+  intl: any
+  local_auth: any
+  path: any
+  path_provider: any
+  sqflite_sqlcipher: any
+  pdf: ^3.11.0
+  uuid: any
+  vsc_quill_delta_to_html: ^1.0.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: any
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/icon.png
+    - assets/icon_dark.png

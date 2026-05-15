@@ -1,0 +1,874 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:file_selector/file_selector.dart';
+import 'package:path/path.dart' as p;
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:vsc_quill_delta_to_html/vsc_quill_delta_to_html.dart';
+
+import '../../../app/app_strings.dart';
+import '../../../core/storage/vault_paths.dart';
+import '../../documents/data/document_repository.dart';
+import '../domain/note.dart';
+import '../domain/note_attachment.dart';
+
+enum NoteExportFormat {
+  txt('Plain text', 'txt'),
+  markdown('Markdown', 'md'),
+  rtf('RTF (Word / LibreOffice)', 'rtf'),
+  pdf('PDF', 'pdf'),
+  html('HTML', 'html'),
+  json('JSON', 'json');
+
+  const NoteExportFormat(this.label, this.extension);
+
+  final String label;
+  final String extension;
+
+  static NoteExportFormat? fromExtension(String? ext) {
+    if (ext == null) return null;
+    final normalized = ext.toLowerCase();
+    for (final format in values) {
+      if (format.extension == normalized) return format;
+    }
+    return null;
+  }
+}
+
+class NoteExportRepository {
+  NoteExportRepository({
+    VaultPaths? paths,
+    DocumentRepository? documents,
+  })  : _paths = paths ?? const VaultPaths(),
+        _documents = documents;
+
+  final VaultPaths _paths;
+  final DocumentRepository? _documents;
+
+  Future<NoteExportResult> export(
+    Note note, {
+    NoteExportFormat? preferredFormat,
+    AppStrings? strings,
+  }) async {
+    final directory = await _paths.exportsDirectory();
+    final safeTitle =
+        _safeFileName(note.title.trim().isEmpty ? 'nota' : note.title);
+
+    // If the app picked a format from the Save-as menu, the native dialog
+    // only offers that type so the extension always matches.
+    final groups = preferredFormat != null
+        ? <XTypeGroup>[
+            XTypeGroup(
+              label: strings?.exportFormatLabel(preferredFormat) ??
+                  preferredFormat.label,
+              extensions: [preferredFormat.extension],
+            ),
+          ]
+        : <XTypeGroup>[
+            for (final format in NoteExportFormat.values)
+              XTypeGroup(
+                label: strings?.exportFormatLabel(format) ?? format.label,
+                extensions: [format.extension],
+              ),
+          ];
+    final defaultFormat = preferredFormat ?? NoteExportFormat.txt;
+    final location = await getSaveLocation(
+      acceptedTypeGroups: groups,
+      initialDirectory: directory.path,
+      suggestedName: '$safeTitle.${defaultFormat.extension}',
+      confirmButtonText: strings?.save ?? 'Save',
+      canCreateDirectories: true,
+    );
+    if (location == null) {
+      throw const ExportCancelledException();
+    }
+
+    // Menu-chosen format wins; otherwise infer from filter or filename.
+    final format = preferredFormat ?? _detectFormat(location, defaultFormat);
+    final file = File(_ensureExtension(location.path, format.extension));
+    return _writeNote(note, file, format);
+  }
+
+  Future<NoteExportResult> saveAt(
+    Note note,
+    String path,
+    NoteExportFormat format, {
+    bool includeAttachments = true,
+  }) async {
+    final file = File(_ensureExtension(path, format.extension));
+    return _writeNote(note, file, format, includeAttachments: includeAttachments);
+  }
+
+  Future<NoteExportResult> _writeNote(
+    Note note,
+    File file,
+    NoteExportFormat format, {
+    bool includeAttachments = true,
+  }) async {
+    final exportedAttachments = includeAttachments
+        ? await _writeAttachments(note, file)
+        : const <_ExportedAttachment>[];
+    if (_isBinary(format)) {
+      final bytes = await _renderBinary(note, format, exportedAttachments);
+      await file.writeAsBytes(bytes, flush: true);
+    } else {
+      await file.writeAsString(
+        _render(note, format, exportedAttachments),
+        flush: true,
+      );
+    }
+    return NoteExportResult(file: file, format: format);
+  }
+
+  bool _isBinary(NoteExportFormat format) => format == NoteExportFormat.pdf;
+
+  Future<List<_ExportedAttachment>> _writeAttachments(
+    Note note,
+    File mainFile,
+  ) async {
+    if (_documents == null || note.attachments.isEmpty) {
+      return const [];
+    }
+    final baseName = _safeFileName(
+      p.basenameWithoutExtension(mainFile.path).trim().isEmpty
+          ? 'nota'
+          : p.basenameWithoutExtension(mainFile.path),
+    );
+    final folderName = '$baseName-adjuntos';
+    final attachDir = Directory(p.join(p.dirname(mainFile.path), folderName));
+    await attachDir.create(recursive: true);
+
+    final used = <String>{};
+    final results = <_ExportedAttachment>[];
+    for (final attachment in note.attachments) {
+      final safeName = _uniqueName(_safeAttachmentName(attachment), used);
+      used.add(safeName);
+      final outFile = File(p.join(attachDir.path, safeName));
+      final bytes = await _documents!.read(attachment);
+      await outFile.writeAsBytes(bytes, flush: true);
+      results.add(_ExportedAttachment(
+        originalName: attachment.originalName,
+        relativePath: p.join(folderName, safeName),
+      ));
+    }
+    return results;
+  }
+
+  String _safeAttachmentName(NoteAttachment attachment) {
+    final base = p.basename(attachment.originalName);
+    final cleaned = base.replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1F]'), '_').trim();
+    if (cleaned.isEmpty || cleaned == '.' || cleaned == '..') {
+      return '${attachment.id}.bin';
+    }
+    return cleaned;
+  }
+
+  String _uniqueName(String name, Set<String> used) {
+    if (!used.contains(name)) return name;
+    final ext = p.extension(name);
+    final base = p.basenameWithoutExtension(name);
+    var i = 1;
+    while (used.contains('$base-$i$ext')) {
+      i++;
+    }
+    return '$base-$i$ext';
+  }
+
+  NoteExportFormat _detectFormat(
+    FileSaveLocation location,
+    NoteExportFormat fallback,
+  ) {
+    final activeExt = location.activeFilter?.extensions?.firstOrNull;
+    if (activeExt != null) {
+      for (final format in NoteExportFormat.values) {
+        if (format.extension == activeExt) {
+          return format;
+        }
+      }
+    }
+    final ext = p.extension(location.path).replaceFirst('.', '').toLowerCase();
+    for (final format in NoteExportFormat.values) {
+      if (format.extension == ext) {
+        return format;
+      }
+    }
+    return fallback;
+  }
+
+  Future<String> storagePath() async => (await _paths.appDirectory()).path;
+
+  Future<String> exportsPath() async => (await _paths.exportsDirectory()).path;
+
+  List<Map<String, dynamic>> _deltaOps(String body) {
+    if (body.trim().isEmpty) return [];
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is List) {
+        return decoded.whereType<Map>().map((m) => Map<String, dynamic>.from(m)).toList();
+      }
+    } catch (_) {}
+    return [
+      {'insert': body},
+      {'insert': '\n'},
+    ];
+  }
+
+  /// Resolves local file paths from the Quill image embed (and normal file:// URLs).
+  String? _localImageAbsolutePath(String raw) {
+    if (raw.startsWith('data:image/')) {
+      return null;
+    }
+    if (raw.startsWith('file://')) {
+      return Uri.tryParse(raw)?.toFilePath();
+    }
+    if (raw.startsWith('/') ||
+        (Platform.isWindows && raw.length > 2 && raw[1] == ':')) {
+      return raw;
+    }
+    return null;
+  }
+
+  String _mimeForImagePath(String path) {
+    switch (p.extension(path).toLowerCase()) {
+      case '.jpg':
+      case '.jpeg':
+        return 'image/jpeg';
+      case '.gif':
+        return 'image/gif';
+      case '.webp':
+        return 'image/webp';
+      case '.bmp':
+        return 'image/bmp';
+      case '.png':
+      default:
+        return 'image/png';
+    }
+  }
+
+  /// Reads local image file into a `data:` URL for self-contained HTML / Markdown.
+  String? _imageToDataUrlForExport(String rawSource) {
+    final path = _localImageAbsolutePath(rawSource);
+    if (path == null) return null;
+    final file = File(path);
+    if (!file.existsSync()) return null;
+    try {
+      final bytes = file.readAsBytesSync();
+      final mime = _mimeForImagePath(path);
+      return 'data:$mime;base64,${base64Encode(bytes)}';
+    } catch (_) {
+      return null;
+    }
+  }
+
+  List<Map<String, dynamic>> _deltaOpsWithDataUrlImages(String body) {
+    final ops = _deltaOps(body);
+    final out = <Map<String, dynamic>>[];
+    for (final op in ops) {
+      final insert = op['insert'];
+      if (insert is Map && insert['image'] is String) {
+        final src = insert['image'] as String;
+        final dataUrl = _imageToDataUrlForExport(src);
+        if (dataUrl != null) {
+          final m = Map<String, dynamic>.from(op);
+          m['insert'] = <String, String>{'image': dataUrl};
+          out.add(m);
+          continue;
+        }
+      }
+      out.add(Map<String, dynamic>.from(op));
+    }
+    return out;
+  }
+
+  String _rtfHexPicture(Uint8List bytes, {required bool isJpeg}) {
+    final blip = isJpeg ? r'\jpegblip' : r'\pngblip';
+    final hex = StringBuffer();
+    for (final b in bytes) {
+      hex.write(b.toRadixString(16).padLeft(2, '0'));
+    }
+    return '{\\*\\shppict{\\pict$blip\\picwgoal5000\\pichgoal4000\n'
+        '${hex.toString()}\n}}\n\\par ';
+  }
+
+  void _appendRtfImage(StringBuffer buf, String rawSource) {
+    final path = _localImageAbsolutePath(rawSource);
+    if (path == null) {
+      buf.write(_rtfEscape('[imagen]'));
+      buf.write(r'\par ');
+      return;
+    }
+    final file = File(path);
+    if (!file.existsSync()) {
+      buf.write(_rtfEscape('[imagen no encontrada]'));
+      buf.write(r'\par ');
+      return;
+    }
+    try {
+      final bytes = file.readAsBytesSync();
+      final ext = p.extension(path).toLowerCase();
+      final isJpeg = ext == '.jpg' || ext == '.jpeg';
+      buf.write(_rtfHexPicture(bytes, isJpeg: isJpeg));
+    } catch (_) {
+      buf.write(_rtfEscape('[imagen]'));
+      buf.write(r'\par ');
+    }
+  }
+
+  String _plainText(String body) {
+    final ops = _deltaOps(body);
+    final buffer = StringBuffer();
+    for (final op in ops) {
+      final insert = op['insert'];
+      if (insert is Map && insert['image'] != null) {
+        buffer.write('[image]');
+        continue;
+      }
+      if (insert is! String) continue;
+      final attrs = op['attributes'] as Map?;
+      final link = attrs?['link'];
+      if (link is String && insert.trim().isNotEmpty && insert.trim() != link) {
+        buffer.write('$insert ($link)');
+      } else {
+        buffer.write(insert);
+      }
+    }
+    return buffer.toString();
+  }
+
+  String _toMarkdown(String body) {
+    final ops = _deltaOps(body);
+    final buffer = StringBuffer();
+    var atLineStart = true;
+    for (final op in ops) {
+      final insert = op['insert'];
+      if (insert is Map && insert['image'] is String) {
+        final dataUrl = _imageToDataUrlForExport(insert['image'] as String);
+        if (dataUrl != null) {
+          buffer.write('![]($dataUrl)\n\n');
+        } else {
+          buffer.write('![](${insert['image']})\n\n');
+        }
+        atLineStart = true;
+        continue;
+      }
+      if (insert is! String) continue;
+      final attrs = op['attributes'] as Map?;
+      final lines = insert.split('\n');
+      for (var i = 0; i < lines.length; i++) {
+        final isLast = i == lines.length - 1;
+        var segment = lines[i];
+        if (segment.isNotEmpty && attrs != null) {
+          if (attrs['code'] == true) segment = '`$segment`';
+          if (attrs['strike'] == true) segment = '~~$segment~~';
+          if (attrs['underline'] == true) segment = '<u>$segment</u>';
+          if (attrs['italic'] == true) segment = '*$segment*';
+          if (attrs['bold'] == true) segment = '**$segment**';
+          final color = attrs['color'];
+          if (color is String) {
+            segment = '<span style="color:$color">$segment</span>';
+          }
+          final link = attrs['link'];
+          if (link is String && link.isNotEmpty) {
+            segment = '[$segment]($link)';
+          }
+        }
+        if (atLineStart && attrs != null) {
+          final header = attrs['header'];
+          if (header is int) {
+            buffer.write('${'#' * header} ');
+          } else if (attrs['list'] == 'bullet') {
+            buffer.write('- ');
+          } else if (attrs['list'] == 'ordered') {
+            buffer.write('1. ');
+          } else if (attrs['blockquote'] == true) {
+            buffer.write('> ');
+          }
+        }
+        buffer.write(segment);
+        if (!isLast) {
+          buffer.write('\n');
+          atLineStart = true;
+        } else {
+          atLineStart = false;
+        }
+      }
+    }
+    return buffer.toString();
+  }
+
+  String _toRtfDocument(
+    Note note,
+    List<_ExportedAttachment> attachments,
+  ) {
+    final ops = _deltaOps(note.body);
+    final buf = StringBuffer();
+    buf.write(r'{\rtf1\ansi\ansicpg1252\deff0\nouicompat'
+        r'{\fonttbl{\f0\fnil\fcharset0 Helvetica;}{\f1\fnil\fcharset0 Courier New;}}');
+    buf.write(r'{\colortbl ;\red0\green0\blue0;}');
+    buf.write(r'\f0\fs22 ');
+    if (note.title.isNotEmpty) {
+      buf.write(r'\b\fs32 ');
+      buf.write(_rtfEscape(note.title));
+      buf.write(r'\b0\fs22\par\par ');
+    }
+    if (note.tags.isNotEmpty) {
+      buf.write(r'\i ');
+      buf.write(_rtfEscape('Etiquetas: ${note.tags.join(', ')}'));
+      buf.write(r'\i0\par\par ');
+    }
+    for (final op in ops) {
+      final insert = op['insert'];
+      if (insert is Map && insert['image'] is String) {
+        _appendRtfImage(buf, insert['image'] as String);
+        continue;
+      }
+      if (insert is! String) continue;
+      final attrs = op['attributes'] as Map?;
+      final lines = insert.split('\n');
+      for (var i = 0; i < lines.length; i++) {
+        var segment = _rtfEscape(lines[i]);
+        var openTags = '';
+        var closeTags = '';
+        if (attrs != null) {
+          if (attrs['code'] == true) {
+            openTags += r'\f1 ';
+            closeTags = r'\f0 ' + closeTags;
+          }
+          if (attrs['bold'] == true) {
+            openTags += r'\b ';
+            closeTags = r'\b0 ' + closeTags;
+          }
+          if (attrs['italic'] == true) {
+            openTags += r'\i ';
+            closeTags = r'\i0 ' + closeTags;
+          }
+          if (attrs['underline'] == true) {
+            openTags += r'\ul ';
+            closeTags = r'\ulnone ' + closeTags;
+          }
+          if (attrs['strike'] == true) {
+            openTags += r'\strike ';
+            closeTags = r'\strike0 ' + closeTags;
+          }
+          final link = attrs['link'];
+          if (link is String && link.isNotEmpty) {
+            final url = _rtfEscape(link);
+            segment =
+                '{\\field{\\*\\fldinst{HYPERLINK "$url"}}{\\fldrslt $segment}}';
+          }
+        }
+        buf.write('$openTags$segment$closeTags');
+        if (i < lines.length - 1) {
+          buf.write(r'\par ');
+        }
+      }
+    }
+    if (attachments.isNotEmpty) {
+      buf.write(r'\par\par\b Adjuntos\b0\par ');
+      for (final a in attachments) {
+        buf.write(_rtfEscape('• ${a.originalName}  (${a.relativePath})'));
+        buf.write(r'\par ');
+      }
+    }
+    buf.write('}');
+    return buf.toString();
+  }
+
+  String _rtfEscape(String value) {
+    final out = StringBuffer();
+    for (final rune in value.runes) {
+      if (rune == 0x5C) {
+        out.write(r'\\');
+      } else if (rune == 0x7B) {
+        out.write(r'\{');
+      } else if (rune == 0x7D) {
+        out.write(r'\}');
+      } else if (rune < 128) {
+        out.writeCharCode(rune);
+      } else {
+        var signed = rune;
+        if (signed > 32767) signed -= 65536;
+        out.write('\\u$signed?');
+      }
+    }
+    return out.toString();
+  }
+
+  Future<Uint8List> _toPdf(
+    Note note,
+    List<_ExportedAttachment> attachments,
+  ) async {
+    final doc = pw.Document();
+    final ops = _deltaOps(note.body);
+    final bodyWidgets = _pdfBodyWidgets(ops);
+    doc.addPage(
+      pw.MultiPage(
+        margin: const pw.EdgeInsets.fromLTRB(48, 56, 48, 56),
+        build: (context) {
+          return [
+            pw.Text(
+              note.title.isEmpty ? 'Untitled' : note.title,
+              style: pw.TextStyle(
+                fontSize: 22,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+            if (note.tags.isNotEmpty) ...[
+              pw.SizedBox(height: 4),
+              pw.Text(
+                'Etiquetas: ${note.tags.join(', ')}',
+                style: const pw.TextStyle(
+                  fontSize: 10,
+                  color: PdfColors.grey700,
+                ),
+              ),
+            ],
+            pw.SizedBox(height: 16),
+            ...bodyWidgets,
+            if (attachments.isNotEmpty) ...[
+              pw.SizedBox(height: 20),
+              pw.Divider(color: PdfColors.grey400),
+              pw.SizedBox(height: 6),
+              pw.Text(
+                'Adjuntos',
+                style: pw.TextStyle(
+                  fontSize: 12,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 4),
+              for (final a in attachments)
+                pw.Bullet(text: '${a.originalName}  (${a.relativePath})'),
+            ],
+          ];
+        },
+      ),
+    );
+    return doc.save();
+  }
+
+  List<pw.Widget> _pdfBodyWidgets(List<Map<String, dynamic>> ops) {
+    final widgets = <pw.Widget>[];
+    final lineSpans = <pw.InlineSpan>[];
+    Map<String, dynamic>? blockAttrs;
+
+    void flushLine() {
+      final isCode = blockAttrs?['code-block'] == true;
+      final header = blockAttrs?['header'];
+      final isQuote = blockAttrs?['blockquote'] == true;
+      pw.Widget child;
+      if (lineSpans.isEmpty) {
+        child = pw.SizedBox(height: 6);
+      } else if (header is int && header > 0) {
+        child = pw.Padding(
+          padding: const pw.EdgeInsets.only(top: 8, bottom: 4),
+          child: pw.RichText(
+            text: pw.TextSpan(
+              children: lineSpans
+                  .map((s) => s is pw.TextSpan
+                      ? pw.TextSpan(
+                          text: s.text,
+                          style: (s.style ?? const pw.TextStyle()).copyWith(
+                            fontSize: header == 1 ? 18 : (header == 2 ? 15 : 13),
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        )
+                      : s)
+                  .toList(),
+            ),
+          ),
+        );
+      } else if (isCode) {
+        child = pw.Container(
+          width: double.infinity,
+          decoration: pw.BoxDecoration(
+            color: PdfColors.grey100,
+            borderRadius: pw.BorderRadius.circular(4),
+          ),
+          padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: pw.RichText(text: pw.TextSpan(children: List.of(lineSpans))),
+        );
+      } else if (isQuote) {
+        child = pw.Container(
+          padding: const pw.EdgeInsets.only(left: 10),
+          decoration: const pw.BoxDecoration(
+            border: pw.Border(
+              left: pw.BorderSide(color: PdfColors.grey400, width: 2),
+            ),
+          ),
+          child: pw.RichText(text: pw.TextSpan(children: List.of(lineSpans))),
+        );
+      } else if (blockAttrs?['list'] == 'bullet' ||
+          blockAttrs?['list'] == 'ordered') {
+        final marker = blockAttrs?['list'] == 'ordered' ? '1. ' : '•  ';
+        child = pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text(marker),
+            pw.Expanded(
+              child: pw.RichText(
+                text: pw.TextSpan(children: List.of(lineSpans)),
+              ),
+            ),
+          ],
+        );
+      } else {
+        child = pw.RichText(text: pw.TextSpan(children: List.of(lineSpans)));
+      }
+      widgets.add(child);
+      lineSpans.clear();
+      blockAttrs = null;
+    }
+
+    for (final op in ops) {
+      final insert = op['insert'];
+      if (insert is Map && insert['image'] is String) {
+        if (lineSpans.isNotEmpty) flushLine();
+        final path = _localImageAbsolutePath(insert['image'] as String);
+        if (path != null) {
+          try {
+            final file = File(path);
+            if (file.existsSync()) {
+              final bytes = file.readAsBytesSync();
+              widgets.add(
+                pw.Padding(
+                  padding: const pw.EdgeInsets.only(bottom: 10),
+                  child: pw.Center(
+                    child: pw.Image(
+                      pw.MemoryImage(bytes),
+                      width: 420,
+                      fit: pw.BoxFit.contain,
+                    ),
+                  ),
+                ),
+              );
+            }
+          } catch (_) {}
+        }
+        continue;
+      }
+      if (insert is! String) continue;
+      final attrs = op['attributes'] as Map?;
+      final inlineStyle = _pdfInlineStyle(attrs);
+      final link = attrs?['link'];
+      final lines = insert.split('\n');
+      for (var i = 0; i < lines.length; i++) {
+        final text = lines[i];
+        if (text.isNotEmpty) {
+          lineSpans.add(
+            pw.TextSpan(
+              text: text,
+              style: link is String
+                  ? inlineStyle.copyWith(
+                      color: PdfColors.blue700,
+                      decoration: pw.TextDecoration.underline,
+                    )
+                  : inlineStyle,
+            ),
+          );
+          if (link is String && link.isNotEmpty && link != text) {
+            lineSpans.add(
+              pw.TextSpan(
+                text: ' ($link)',
+                style: const pw.TextStyle(
+                  fontSize: 9,
+                  color: PdfColors.grey600,
+                ),
+              ),
+            );
+          }
+        }
+        if (i < lines.length - 1) {
+          if (attrs != null) {
+            blockAttrs = Map<String, dynamic>.from(attrs);
+          }
+          flushLine();
+        }
+      }
+    }
+    if (lineSpans.isNotEmpty) flushLine();
+    return widgets;
+  }
+
+  pw.TextStyle _pdfInlineStyle(Map? attrs) {
+    var style = const pw.TextStyle(fontSize: 11);
+    if (attrs == null) return style;
+    if (attrs['bold'] == true) {
+      style = style.copyWith(fontWeight: pw.FontWeight.bold);
+    }
+    if (attrs['italic'] == true) {
+      style = style.copyWith(fontStyle: pw.FontStyle.italic);
+    }
+    if (attrs['underline'] == true) {
+      style = style.copyWith(decoration: pw.TextDecoration.underline);
+    }
+    if (attrs['strike'] == true) {
+      style = style.copyWith(decoration: pw.TextDecoration.lineThrough);
+    }
+    if (attrs['code'] == true) {
+      style = style.copyWith(font: pw.Font.courier(), fontSize: 10);
+    }
+    final color = attrs['color'];
+    if (color is String) {
+      final parsed = _parseHexColor(color);
+      if (parsed != null) {
+        style = style.copyWith(color: parsed);
+      }
+    }
+    return style;
+  }
+
+  PdfColor? _parseHexColor(String value) {
+    var v = value.trim();
+    if (v.startsWith('#')) v = v.substring(1);
+    if (v.length == 6) v = 'FF$v';
+    if (v.length != 8) return null;
+    try {
+      final n = int.parse(v, radix: 16);
+      return PdfColor.fromInt(n);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _toHtml(String body) {
+    final ops = _deltaOpsWithDataUrlImages(body);
+    if (ops.isEmpty) return '';
+    final converter = QuillDeltaToHtmlConverter(ops);
+    return converter.convert();
+  }
+
+  Future<Uint8List> _renderBinary(
+    Note note,
+    NoteExportFormat format,
+    List<_ExportedAttachment> attachments,
+  ) {
+    switch (format) {
+      case NoteExportFormat.pdf:
+        return _toPdf(note, attachments);
+      default:
+        throw StateError('No es un formato binario: $format');
+    }
+  }
+
+  String _render(
+    Note note,
+    NoteExportFormat format,
+    List<_ExportedAttachment> attachments,
+  ) {
+    switch (format) {
+      case NoteExportFormat.pdf:
+        throw StateError('PDF se exporta en binario.');
+      case NoteExportFormat.rtf:
+        return _toRtfDocument(note, attachments);
+      case NoteExportFormat.txt:
+        final tags = note.tags.isEmpty
+            ? ''
+            : '\nEtiquetas: ${note.tags.join(', ')}\n';
+        final attachSection = attachments.isEmpty
+            ? ''
+            : '\n---\nAdjuntos:\n${attachments.map((a) => '- ${a.originalName}  (${a.relativePath})').join('\n')}\n';
+        return '${note.title}\n${'=' * note.title.length}\n$tags\n${_plainText(note.body)}\n$attachSection';
+      case NoteExportFormat.markdown:
+        final tags = note.tags.isEmpty
+            ? ''
+            : '\n\n**Etiquetas:** ${note.tags.join(', ')}';
+        final attachSection = attachments.isEmpty
+            ? ''
+            : '\n\n## Adjuntos\n${attachments.map((a) => '- [${a.originalName}](${Uri.encodeFull(a.relativePath)})').join('\n')}\n';
+        return '# ${note.title}\n\n${_toMarkdown(note.body)}$tags$attachSection\n';
+      case NoteExportFormat.json:
+        final delta = _deltaOps(note.body);
+        return const JsonEncoder.withIndent('  ').convert({
+          'title': note.title,
+          'tags': note.tags,
+          'createdAt': note.createdAt.toIso8601String(),
+          'updatedAt': note.updatedAt.toIso8601String(),
+          'body': delta,
+          'attachments': [
+            for (final a in attachments)
+              {'name': a.originalName, 'path': a.relativePath},
+          ],
+        });
+      case NoteExportFormat.html:
+        final body = _toHtml(note.body);
+        final attachSection = attachments.isEmpty
+            ? ''
+            : '''
+  <h2>Adjuntos</h2>
+  <ul>
+    ${attachments.map((a) => '<li><a href="${Uri.encodeFull(a.relativePath)}">${_escapeHtml(a.originalName)}</a></li>').join('\n    ')}
+  </ul>''';
+        return '''
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>${_escapeHtml(note.title)}</title>
+  <style>
+    body { font-family: -apple-system, system-ui, sans-serif; max-width: 720px; margin: 32px auto; padding: 0 16px; line-height: 1.6; color: #1c1c1e; }
+    h1, h2, h3 { letter-spacing: -0.01em; }
+    blockquote { border-left: 3px solid #d1d1d6; padding-left: 12px; color: #6c6c70; }
+    code { background: #f5f5f7; padding: 2px 5px; border-radius: 4px; font-family: monospace; }
+    pre { background: #f6f8fa; padding: 12px 14px; border-radius: 8px; border: 1px solid #e5e7eb; overflow:auto; }
+    a { color: #0a66c2; }
+    img { max-width: 100%; height: auto; border-radius: 8px; margin: 12px 0; }
+  </style>
+</head>
+<body>
+  <h1>${_escapeHtml(note.title)}</h1>
+  $body
+  $attachSection
+</body>
+</html>
+''';
+    }
+  }
+
+  String _safeFileName(String value) {
+    return value
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9áéíóúñü]+', caseSensitive: false), '-')
+        .replaceAll(RegExp(r'^-+|-+$'), '')
+        .trim();
+  }
+
+  String _ensureExtension(String path, String extension) {
+    return p.extension(path).isEmpty ? '$path.$extension' : path;
+  }
+
+  String _escapeHtml(String value) {
+    return value
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+  }
+}
+
+class ExportCancelledException implements Exception {
+  const ExportCancelledException();
+
+  @override
+  String toString() => 'Export cancelled.';
+}
+
+class _ExportedAttachment {
+  const _ExportedAttachment({
+    required this.originalName,
+    required this.relativePath,
+  });
+
+  final String originalName;
+  final String relativePath;
+}
+
+class NoteExportResult {
+  const NoteExportResult({required this.file, required this.format});
+
+  final File file;
+  final NoteExportFormat format;
+}

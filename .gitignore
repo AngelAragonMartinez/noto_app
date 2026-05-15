@@ -1,0 +1,30 @@
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+coverage/
+*.iml
+
+# API docs
+doc/api/
+
+# Secrets / local env (never commit)
+.env
+.env.*
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+
+# Logs
+*.log
+
+# Local runtime / vault-like artifacts from testing installs
+*.db
+*.enc
