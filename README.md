@@ -42,6 +42,7 @@ sudo ./install.sh
 ```
 
 Eso es todo. Noto aparece en el lanzador de aplicaciones como cualquier otra app instalada.  
+No es necesario reiniciar. Si el ícono no aparece de inmediato, cierra y vuelve a abrir el lanzador.  
 Para desinstalar: `sudo ./uninstall.sh`
 
 ---
