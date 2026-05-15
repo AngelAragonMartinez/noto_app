@@ -19,10 +19,14 @@ require() {
   command -v "$1" &>/dev/null || { red "Error: '$1' no encontrado. Instálalo y vuelve a intentarlo."; exit 1; }
 }
 
+# ── dependencias del sistema ──────────────────────────────────────────────────
+info "Instalando dependencias del sistema (se pedirá contraseña)..."
+sudo apt install -y clang cmake ninja-build pkg-config libgtk-3-dev \
+  libsecret-1-dev libjsoncpp-dev
+
 # ── checks ────────────────────────────────────────────────────────────────────
 info "Verificando requisitos..."
 require flutter
-require cmake
 
 # ── build (como usuario normal) ───────────────────────────────────────────────
 info "Descargando dependencias de Flutter..."
