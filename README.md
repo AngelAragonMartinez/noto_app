@@ -2,6 +2,18 @@
 
 Local encrypted notes for Linux. No accounts, no sync, no cloud.
 
+<br>
+
+<p align="center">
+  <img src="screenshots/welcome.png" width="640" alt="Welcome screen"/>
+</p>
+
+<p align="center">
+  <img src="screenshots/editor.png" width="640" alt="Note editor"/>
+</p>
+
+<br>
+
 ---
 
 ## Features
