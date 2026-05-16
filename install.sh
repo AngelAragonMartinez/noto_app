@@ -10,7 +10,7 @@ BUNDLE_DIR="build/linux/x64/release/bundle"
 INSTALL_DIR="/opt/$BINARY_NAME"
 INSTALL_BIN="/usr/bin/$BINARY_NAME"
 INSTALL_ICON="/usr/share/icons/hicolor/512x512/apps/$APP_ID.png"
-INSTALL_DESKTOP="/usr/share/applications/$BINARY_NAME.desktop"
+INSTALL_DESKTOP="/usr/share/applications/$APP_ID.desktop"
 
 red()   { echo -e "\033[0;31m$*\033[0m"; }
 green() { echo -e "\033[0;32m$*\033[0m"; }
@@ -83,7 +83,9 @@ cp assets/icon.png "$INSTALL_ICON_256"
 chmod 644 "$INSTALL_ICON_256"
 
 mkdir -p "$(dirname "$INSTALL_DESKTOP")"
-cp linux/packaging/noto.desktop "$INSTALL_DESKTOP"
+# Quitar entrada con nombre legacy si existe (anterior al fix de matching en Wayland)
+rm -f "/usr/share/applications/$BINARY_NAME.desktop"
+cp linux/packaging/io.github.AngelAragonMartinez.Noto.desktop "$INSTALL_DESKTOP"
 sed -i "s|^Exec=.*|Exec=$INSTALL_BIN|" "$INSTALL_DESKTOP"
 chmod 644 "$INSTALL_DESKTOP"
 

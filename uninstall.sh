@@ -21,9 +21,11 @@ info "Eliminando Noto..."
 rm -f  "/usr/bin/$BINARY_NAME"
 rm -f  "/usr/local/bin/$BINARY_NAME"
 rm -rf "/opt/$BINARY_NAME"
-rm -f  "/usr/share/applications/$BINARY_NAME.desktop"
-rm -f  "/usr/share/icons/hicolor/512x512/apps/$APP_ID.png"
-rm -f  "/usr/share/icons/hicolor/256x256/apps/$APP_ID.png"
+rm -f  "/usr/share/applications/$APP_ID.desktop"
+rm -f  "/usr/share/applications/$BINARY_NAME.desktop"  # legacy name, anterior al fix de Wayland
+for size in 48 64 128 256 512; do
+  rm -f "/usr/share/icons/hicolor/${size}x${size}/apps/$APP_ID.png"
+done
 
 gtk-update-icon-cache -f -t /usr/share/icons/hicolor 2>/dev/null || true
 update-desktop-database /usr/share/applications 2>/dev/null || true

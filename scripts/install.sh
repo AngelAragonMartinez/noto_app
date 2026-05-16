@@ -65,8 +65,9 @@ gtk-update-icon-cache /usr/share/icons/hicolor/ 2>/dev/null || true
 
 # 7. Instalar .desktop
 echo "Instalando entrada de aplicación..."
-cp linux/packaging/noto.desktop "$DESKTOP_DIR/noto.desktop"
-chmod 644 "$DESKTOP_DIR/noto.desktop"
+rm -f "$DESKTOP_DIR/noto.desktop"  # legacy name, anterior al fix de Wayland
+cp linux/packaging/io.github.AngelAragonMartinez.Noto.desktop "$DESKTOP_DIR/io.github.AngelAragonMartinez.Noto.desktop"
+chmod 644 "$DESKTOP_DIR/io.github.AngelAragonMartinez.Noto.desktop"
 update-desktop-database "$DESKTOP_DIR/" 2>/dev/null || true
 
 echo ""
