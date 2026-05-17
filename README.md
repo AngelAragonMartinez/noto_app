@@ -31,7 +31,7 @@ Local encrypted notes for Linux. No accounts, no sync, no cloud.
 
 ## Install
 
-Requires **Flutter SDK ≥ 3.4** on a Debian/Ubuntu system.
+Requires **Flutter SDK ≥ 3.4** on a Debian/Ubuntu or Fedora system.
 
 ```bash
 git clone https://github.com/AngelAragonMartinez/noto_app.git
