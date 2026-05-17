@@ -23,6 +23,24 @@ if [[ $EUID -ne 0 ]]; then
   exit 1
 fi
 
+# ── detectar distro ───────────────────────────────────────────────────────────
+DISTRO_FAMILY=""
+if [[ -r /etc/os-release ]]; then
+  . /etc/os-release
+  case "${ID:-}" in
+    debian|ubuntu|linuxmint|pop|elementary)
+      DISTRO_FAMILY="debian" ;;
+    fedora|rhel|centos|rocky|alma|nobara)
+      DISTRO_FAMILY="fedora" ;;
+    *)
+      case "${ID_LIKE:-}" in
+        *debian*|*ubuntu*) DISTRO_FAMILY="debian" ;;
+        *fedora*|*rhel*)   DISTRO_FAMILY="fedora" ;;
+      esac
+      ;;
+  esac
+fi
+
 # Usuario real que ejecutó sudo (para correr Flutter sin root)
 REAL_USER="${SUDO_USER:-$USER}"
 REAL_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
@@ -47,8 +65,21 @@ info "Flutter encontrado: $FLUTTER_BIN"
 
 # ── dependencias del sistema ──────────────────────────────────────────────────
 info "Instalando dependencias del sistema..."
-apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev \
-  libsecret-1-dev libjsoncpp-dev
+case "$DISTRO_FAMILY" in
+  debian)
+    apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev \
+      libsecret-1-dev libjsoncpp-dev
+    ;;
+  fedora)
+    dnf install -y clang cmake ninja-build pkgconf-pkg-config gtk3-devel \
+      libsecret-devel jsoncpp-devel
+    ;;
+  *)
+    red "Distribución no reconocida en /etc/os-release."
+    info "Instala manualmente: clang, cmake, ninja, pkg-config, gtk3-devel, libsecret-devel, jsoncpp-devel."
+    exit 1
+    ;;
+esac
 
 # ── build como usuario normal ─────────────────────────────────────────────────
 info "Descargando dependencias de Flutter..."
