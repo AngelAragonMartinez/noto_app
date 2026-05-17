@@ -13,11 +13,11 @@ class NotesRepository {
   final VaultStore _store;
   final Uuid _uuid;
 
-  Future<List<Note>> list({bool includeDeleted = false}) async {
+  Future<List<Note>> list({bool onlyDeleted = false}) async {
     final data = await _store.read();
-    final notes = includeDeleted
-        ? data.notes
-        : data.notes.where((note) => !note.isDeleted).toList();
+    final notes = data.notes
+        .where((note) => onlyDeleted ? note.isDeleted : !note.isDeleted)
+        .toList();
     notes.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     return notes;
   }
@@ -106,9 +106,9 @@ class NotesRepository {
     return updated;
   }
 
-  Future<List<Note>> search(String query, {bool includeDeleted = false}) async {
+  Future<List<Note>> search(String query, {bool onlyDeleted = false}) async {
     final normalized = query.trim().toLowerCase();
-    final notes = await list(includeDeleted: includeDeleted);
+    final notes = await list(onlyDeleted: onlyDeleted);
     if (normalized.isEmpty) {
       return notes;
     }

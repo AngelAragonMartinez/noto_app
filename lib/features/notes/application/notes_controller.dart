@@ -116,7 +116,7 @@ class NotesController extends StateNotifier<NotesState> {
     await _guard(() async {
       final notes = await _notesRepository.search(
         state.query,
-        includeDeleted: state.showTrash,
+        onlyDeleted: state.showTrash,
       );
       final selectedNoteId = () {
         if (notes.isEmpty) {
@@ -166,7 +166,7 @@ class NotesController extends StateNotifier<NotesState> {
 
       var notes = await _notesRepository.search(
         state.query,
-        includeDeleted: state.showTrash,
+        onlyDeleted: state.showTrash,
       );
       final hasGuide =
           notes.any((n) => legacyTitles.contains(n.title.trim()));
@@ -226,7 +226,7 @@ class NotesController extends StateNotifier<NotesState> {
       if (!mounted) return;
       notes = await _notesRepository.search(
         state.query,
-        includeDeleted: state.showTrash,
+        onlyDeleted: state.showTrash,
       );
       _rebuildBaselinesFromNotes(notes);
       final keepId = state.selectedNoteId;
@@ -252,7 +252,7 @@ class NotesController extends StateNotifier<NotesState> {
       _recordBaseline(note);
       final notes = await _notesRepository.search(
         state.query,
-        includeDeleted: state.showTrash,
+        onlyDeleted: state.showTrash,
       );
       _rebuildBaselinesFromNotes(notes);
       state = state.copyWith(
@@ -385,7 +385,7 @@ class NotesController extends StateNotifier<NotesState> {
       }
       final notes = await _notesRepository.search(
         state.query,
-        includeDeleted: state.showTrash,
+        onlyDeleted: state.showTrash,
       );
       _rebuildBaselinesFromNotes(notes);
       state = state.copyWith(
