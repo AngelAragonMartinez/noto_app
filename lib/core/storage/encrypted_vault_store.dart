@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import '../security/encrypted_codec.dart';
 import '../security/secure_key_store.dart';
@@ -43,7 +44,12 @@ class EncryptedVaultStore implements VaultStore {
       utf8.encode(jsonEncode(data.toJson())),
       await _keyStore.readOrCreateVaultKey(),
     );
+    // Write to a temp sibling and rename so a crash mid-write can't corrupt
+    // the vault. With AES-GCM, any partial bytes would make the whole file
+    // fail authentication and the user would lose every note.
     final file = await _paths.vaultFile();
-    await file.writeAsString(jsonEncode(payload.toJson()), flush: true);
+    final tmpFile = File('${file.path}.tmp');
+    await tmpFile.writeAsString(jsonEncode(payload.toJson()), flush: true);
+    await tmpFile.rename(file.path);
   }
 }
