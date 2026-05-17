@@ -252,6 +252,10 @@ class AppStrings {
 
   String get attachments => _es ? 'Adjuntos' : 'Attachments';
 
+  String get tagsLabel => _es ? 'Etiquetas' : 'Tags';
+
+  String get htmlLangCode => _es ? 'es' : 'en';
+
   String get removeAttachmentTitle =>
       _es ? 'Quitar adjunto' : 'Remove attachment';
 

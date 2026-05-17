@@ -246,7 +246,9 @@ class NotesController extends StateNotifier<NotesState> {
 
   Future<void> createNote() async {
     await _guard(() async {
-      final note = await _notesRepository.create();
+      final note = await _notesRepository.create(
+        title: _ref.read(appStringsProvider).newNote,
+      );
       _recordBaseline(note);
       final notes = await _notesRepository.search(
         state.query,
@@ -293,7 +295,8 @@ class NotesController extends StateNotifier<NotesState> {
 
   bool _isTrivialBlankDraft(Note note) {
     if (note.attachments.isNotEmpty) return false;
-    if (note.title.trim() != 'New note') return false;
+    const blankTitles = {'New note', 'Nota nueva'};
+    if (!blankTitles.contains(note.title.trim())) return false;
     return note.body.isEmpty;
   }
   
@@ -552,7 +555,12 @@ class NotesController extends StateNotifier<NotesState> {
         (n) => n.id == note.id,
         orElse: () => latest,
       );
-      final result = await _exportRepository.saveAt(current, path, format);
+      final result = await _exportRepository.saveAt(
+        current,
+        path,
+        format,
+        strings: _ref.read(appStringsProvider),
+      );
       await _rememberLastExport(current, result);
       _flashInfo(
         _ref.read(appStringsProvider).savedToPath(result.file.path),

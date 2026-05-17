@@ -49,8 +49,8 @@ class NoteExportRepository {
 
   Future<NoteExportResult> export(
     Note note, {
+    required AppStrings strings,
     NoteExportFormat? preferredFormat,
-    AppStrings? strings,
   }) async {
     final directory = await _paths.exportsDirectory();
     final safeTitle =
@@ -61,15 +61,14 @@ class NoteExportRepository {
     final groups = preferredFormat != null
         ? <XTypeGroup>[
             XTypeGroup(
-              label: strings?.exportFormatLabel(preferredFormat) ??
-                  preferredFormat.label,
+              label: strings.exportFormatLabel(preferredFormat),
               extensions: [preferredFormat.extension],
             ),
           ]
         : <XTypeGroup>[
             for (final format in NoteExportFormat.values)
               XTypeGroup(
-                label: strings?.exportFormatLabel(format) ?? format.label,
+                label: strings.exportFormatLabel(format),
                 extensions: [format.extension],
               ),
           ];
@@ -78,7 +77,7 @@ class NoteExportRepository {
       acceptedTypeGroups: groups,
       initialDirectory: directory.path,
       suggestedName: '$safeTitle.${defaultFormat.extension}',
-      confirmButtonText: strings?.save ?? 'Save',
+      confirmButtonText: strings.save,
       canCreateDirectories: true,
     );
     if (location == null) {
@@ -88,34 +87,43 @@ class NoteExportRepository {
     // Menu-chosen format wins; otherwise infer from filter or filename.
     final format = preferredFormat ?? _detectFormat(location, defaultFormat);
     final file = File(_ensureExtension(location.path, format.extension));
-    return _writeNote(note, file, format);
+    return _writeNote(note, file, format, strings: strings);
   }
 
   Future<NoteExportResult> saveAt(
     Note note,
     String path,
     NoteExportFormat format, {
+    required AppStrings strings,
     bool includeAttachments = true,
   }) async {
     final file = File(_ensureExtension(path, format.extension));
-    return _writeNote(note, file, format, includeAttachments: includeAttachments);
+    return _writeNote(
+      note,
+      file,
+      format,
+      strings: strings,
+      includeAttachments: includeAttachments,
+    );
   }
 
   Future<NoteExportResult> _writeNote(
     Note note,
     File file,
     NoteExportFormat format, {
+    required AppStrings strings,
     bool includeAttachments = true,
   }) async {
     final exportedAttachments = includeAttachments
         ? await _writeAttachments(note, file)
         : const <_ExportedAttachment>[];
     if (_isBinary(format)) {
-      final bytes = await _renderBinary(note, format, exportedAttachments);
+      final bytes =
+          await _renderBinary(note, format, exportedAttachments, strings);
       await file.writeAsBytes(bytes, flush: true);
     } else {
       await file.writeAsString(
-        _render(note, format, exportedAttachments),
+        _render(note, format, exportedAttachments, strings),
         flush: true,
       );
     }
@@ -401,6 +409,7 @@ class NoteExportRepository {
   String _toRtfDocument(
     Note note,
     List<_ExportedAttachment> attachments,
+    AppStrings strings,
   ) {
     final ops = _deltaOps(note.body);
     final buf = StringBuffer();
@@ -415,7 +424,7 @@ class NoteExportRepository {
     }
     if (note.tags.isNotEmpty) {
       buf.write(r'\i ');
-      buf.write(_rtfEscape('Etiquetas: ${note.tags.join(', ')}'));
+      buf.write(_rtfEscape('${strings.tagsLabel}: ${note.tags.join(', ')}'));
       buf.write(r'\i0\par\par ');
     }
     for (final op in ops) {
@@ -499,6 +508,7 @@ class NoteExportRepository {
   Future<Uint8List> _toPdf(
     Note note,
     List<_ExportedAttachment> attachments,
+    AppStrings strings,
   ) async {
     final doc = pw.Document();
     final ops = _deltaOps(note.body);
@@ -509,7 +519,7 @@ class NoteExportRepository {
         build: (context) {
           return [
             pw.Text(
-              note.title.isEmpty ? 'Untitled' : note.title,
+              note.title.isEmpty ? strings.untitled : note.title,
               style: pw.TextStyle(
                 fontSize: 22,
                 fontWeight: pw.FontWeight.bold,
@@ -518,7 +528,7 @@ class NoteExportRepository {
             if (note.tags.isNotEmpty) ...[
               pw.SizedBox(height: 4),
               pw.Text(
-                'Etiquetas: ${note.tags.join(', ')}',
+                '${strings.tagsLabel}: ${note.tags.join(', ')}',
                 style: const pw.TextStyle(
                   fontSize: 10,
                   color: PdfColors.grey700,
@@ -532,7 +542,7 @@ class NoteExportRepository {
               pw.Divider(color: PdfColors.grey400),
               pw.SizedBox(height: 6),
               pw.Text(
-                'Adjuntos',
+                strings.attachments,
                 style: pw.TextStyle(
                   fontSize: 12,
                   fontWeight: pw.FontWeight.bold,
@@ -744,10 +754,11 @@ class NoteExportRepository {
     Note note,
     NoteExportFormat format,
     List<_ExportedAttachment> attachments,
+    AppStrings strings,
   ) {
     switch (format) {
       case NoteExportFormat.pdf:
-        return _toPdf(note, attachments);
+        return _toPdf(note, attachments, strings);
       default:
         throw StateError('No es un formato binario: $format');
     }
@@ -757,27 +768,28 @@ class NoteExportRepository {
     Note note,
     NoteExportFormat format,
     List<_ExportedAttachment> attachments,
+    AppStrings strings,
   ) {
     switch (format) {
       case NoteExportFormat.pdf:
         throw StateError('PDF se exporta en binario.');
       case NoteExportFormat.rtf:
-        return _toRtfDocument(note, attachments);
+        return _toRtfDocument(note, attachments, strings);
       case NoteExportFormat.txt:
         final tags = note.tags.isEmpty
             ? ''
-            : '\nEtiquetas: ${note.tags.join(', ')}\n';
+            : '\n${strings.tagsLabel}: ${note.tags.join(', ')}\n';
         final attachSection = attachments.isEmpty
             ? ''
-            : '\n---\nAdjuntos:\n${attachments.map((a) => '- ${a.originalName}  (${a.relativePath})').join('\n')}\n';
+            : '\n---\n${strings.attachments}:\n${attachments.map((a) => '- ${a.originalName}  (${a.relativePath})').join('\n')}\n';
         return '${note.title}\n${'=' * note.title.length}\n$tags\n${_plainText(note.body)}\n$attachSection';
       case NoteExportFormat.markdown:
         final tags = note.tags.isEmpty
             ? ''
-            : '\n\n**Etiquetas:** ${note.tags.join(', ')}';
+            : '\n\n**${strings.tagsLabel}:** ${note.tags.join(', ')}';
         final attachSection = attachments.isEmpty
             ? ''
-            : '\n\n## Adjuntos\n${attachments.map((a) => '- [${a.originalName}](${Uri.encodeFull(a.relativePath)})').join('\n')}\n';
+            : '\n\n## ${strings.attachments}\n${attachments.map((a) => '- [${a.originalName}](${Uri.encodeFull(a.relativePath)})').join('\n')}\n';
         return '# ${note.title}\n\n${_toMarkdown(note.body)}$tags$attachSection\n';
       case NoteExportFormat.json:
         final delta = _deltaOps(note.body);
@@ -797,13 +809,13 @@ class NoteExportRepository {
         final attachSection = attachments.isEmpty
             ? ''
             : '''
-  <h2>Adjuntos</h2>
+  <h2>${_escapeHtml(strings.attachments)}</h2>
   <ul>
     ${attachments.map((a) => '<li><a href="${Uri.encodeFull(a.relativePath)}">${_escapeHtml(a.originalName)}</a></li>').join('\n    ')}
   </ul>''';
         return '''
 <!doctype html>
-<html lang="es">
+<html lang="${strings.htmlLangCode}">
 <head>
   <meta charset="utf-8">
   <title>${_escapeHtml(note.title)}</title>
