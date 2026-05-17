@@ -8,8 +8,10 @@ void main() {
     test('plain text becomes a single Quill body', () {
       final r = NoteImportResult.parse('hello.txt', 'hello\nworld');
       expect(r.title, 'hello');
-      expect(r.body, contains('"insert"'));
-      expect(r.body, contains('hello\nworld'));
+      final delta = jsonDecode(r.body) as List;
+      expect(delta, isNotEmpty);
+      final firstOp = delta.first as Map;
+      expect(firstOp['insert'], contains('hello\nworld'));
       expect(r.tags, isEmpty);
     });
 
