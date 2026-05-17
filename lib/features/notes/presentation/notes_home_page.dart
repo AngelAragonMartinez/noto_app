@@ -1595,7 +1595,7 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
   }
 }
 
-class _QuillToolbar extends StatelessWidget {
+class _QuillToolbar extends ConsumerWidget {
   const _QuillToolbar({
     required this.controller,
     this.onInsertImage,
@@ -1607,11 +1607,12 @@ class _QuillToolbar extends StatelessWidget {
   final String insertImageTooltip;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = Theme.of(context).colorScheme;
     final selectedBg = colors.primary;
     final selectedFg = colors.onPrimary;
     final unselectedFg = colors.onSurface;
+    final s = ref.watch(appStringsProvider);
     return Container(
       color: colors.surface,
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -1625,11 +1626,23 @@ class _QuillToolbar extends StatelessWidget {
                 unawaited(onInsertImage!());
               },
             ),
+          _HistoryIconButton(
+            controller: controller,
+            isUndo: true,
+            tooltip: s.undoTooltip,
+          ),
+          _HistoryIconButton(
+            controller: controller,
+            isUndo: false,
+            tooltip: s.redoTooltip,
+          ),
           Expanded(
             child: QuillSimpleToolbar(
               controller: controller,
               config: QuillSimpleToolbarConfig(
                 multiRowsDisplay: false,
+                showUndo: false,
+                showRedo: false,
                 showFontFamily: false,
                 showFontSize: false,
                 showLineHeightButton: true,
@@ -1668,6 +1681,48 @@ class _QuillToolbar extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Undo/redo button that reliably tracks controller state by listening to the
+/// controller as a [ChangeNotifier] (rebuilds on every notifyListeners).
+/// flutter_quill's bundled history button only subscribes to the changes
+/// stream in initState, so it can miss updates when the controller is swapped.
+class _HistoryIconButton extends StatelessWidget {
+  const _HistoryIconButton({
+    required this.controller,
+    required this.isUndo,
+    required this.tooltip,
+  });
+
+  final QuillController controller;
+  final bool isUndo;
+  final String tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        final canPress = isUndo ? controller.hasUndo : controller.hasRedo;
+        return IconButton(
+          tooltip: tooltip,
+          icon: Icon(
+            isUndo ? Icons.undo_rounded : Icons.redo_rounded,
+            size: 20,
+          ),
+          onPressed: canPress
+              ? () {
+                  if (isUndo) {
+                    controller.undo();
+                  } else {
+                    controller.redo();
+                  }
+                }
+              : null,
+        );
+      },
     );
   }
 }

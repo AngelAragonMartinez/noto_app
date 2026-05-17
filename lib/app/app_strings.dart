@@ -228,6 +228,10 @@ class AppStrings {
   String get insertImageTooltip =>
       _es ? 'Insertar imagen' : 'Insert image';
 
+  String get undoTooltip => _es ? 'Deshacer' : 'Undo';
+
+  String get redoTooltip => _es ? 'Rehacer' : 'Redo';
+
   String get cancel => _es ? 'Cancelar' : 'Cancel';
 
   String get dontSave => _es ? 'No guardar' : "Don't save";
