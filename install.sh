@@ -42,7 +42,7 @@ if [[ -r /etc/os-release ]]; then
 fi
 
 # Usuario real que ejecutó sudo (para correr Flutter sin root)
-REAL_USER="${SUDO_USER:-$USER}"
+REAL_USER="${SUDO_USER:-$(id -un)}"
 REAL_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
 
 # ── buscar flutter ────────────────────────────────────────────────────────────

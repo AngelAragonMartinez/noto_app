@@ -14,7 +14,7 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 # 1. Verificar Flutter (buscar en PATH del usuario real si sudo no lo ve)
-REAL_USER="${SUDO_USER:-$USER}"
+REAL_USER="${SUDO_USER:-$(id -un)}"
 FLUTTER_BIN=$(sudo -u "$REAL_USER" bash -lc 'command -v flutter 2>/dev/null || echo ""')
 if [[ -z "$FLUTTER_BIN" ]]; then
   # Búsqueda de respaldo en ubicaciones comunes
