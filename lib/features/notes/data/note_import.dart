@@ -56,10 +56,31 @@ class NoteImportResult {
       );
     }
 
+    var title = fallbackTitle;
+    var body = utf8Text;
+
+    if (ext == '.txt') {
+      final m = RegExp(r'^([^\n]+)\n(=+)\n\n').firstMatch(body);
+      if (m != null && m.group(1)!.length == m.group(2)!.length) {
+        title = m.group(1)!;
+        body = body.substring(m.end);
+      }
+    } else if (ext == '.md') {
+      final m = RegExp(r'^# ([^\n]+)\n\n').firstMatch(body);
+      if (m != null) {
+        title = m.group(1)!.trim();
+        body = body.substring(m.end);
+      }
+    }
+
+    body = body.replaceAll(RegExp(r'\s+$'), '');
+
     final doc = Document();
-    doc.insert(0, utf8Text);
+    if (body.isNotEmpty) {
+      doc.insert(0, body);
+    }
     return NoteImportResult(
-      title: fallbackTitle,
+      title: title,
       body: jsonEncode(doc.toDelta().toJson()),
     );
   }

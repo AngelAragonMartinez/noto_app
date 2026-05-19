@@ -24,6 +24,32 @@ void main() {
       expect(jsonDecode(r.body), isA<List>());
     });
 
+    test('strips Noto txt export header so re-saving is idempotent', () {
+      const exported = 'My note\n=======\n\nHello\nworld\n';
+      final r = NoteImportResult.parse('My note.txt', exported);
+      expect(r.title, 'My note');
+      final delta = jsonDecode(r.body) as List;
+      final text = delta
+          .whereType<Map>()
+          .map((op) => op['insert'])
+          .whereType<String>()
+          .join();
+      expect(text.trim(), 'Hello\nworld');
+    });
+
+    test('strips Markdown H1 title header', () {
+      const exported = '# My note\n\nHello\n';
+      final r = NoteImportResult.parse('My note.md', exported);
+      expect(r.title, 'My note');
+      final delta = jsonDecode(r.body) as List;
+      final text = delta
+          .whereType<Map>()
+          .map((op) => op['insert'])
+          .whereType<String>()
+          .join();
+      expect(text.trim(), 'Hello');
+    });
+
     test('Noto-style export object picks title, tags, body', () {
       final raw = jsonEncode({
         'title': 'My title',
