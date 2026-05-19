@@ -374,11 +374,21 @@ class NotesController extends StateNotifier<NotesState> {
     await _guard(() async {
       final raw = await file.readAsString();
       final parsed = NoteImportResult.parse(file.name, raw);
-      final note = await _notesRepository.create(
+      var note = await _notesRepository.create(
         title: parsed.title,
         body: parsed.body,
         tags: parsed.tags,
       );
+      if (file.path.isNotEmpty) {
+        final ext = p.extension(file.name).replaceFirst('.', '').toLowerCase();
+        final format = NoteExportFormat.fromExtension(ext);
+        if (format != null) {
+          note = await _notesRepository.save(note.copyWith(
+            lastExportPath: file.path,
+            lastExportFormat: format.name,
+          ));
+        }
+      }
       _recordBaseline(note);
       if (file.path.isNotEmpty) {
         await _recentImports.prepend(file.path);
