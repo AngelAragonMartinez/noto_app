@@ -1009,6 +1009,8 @@ class NoteEditorPane extends ConsumerStatefulWidget {
 class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
   final _titleController = TextEditingController();
   final _tagsController = TextEditingController();
+  final _titleFocus = FocusNode();
+  final _tagsFocus = FocusNode();
   final _editorFocus = FocusNode();
   final _editorScroll = ScrollController();
   final _findController = TextEditingController();
@@ -1074,6 +1076,8 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
     _quillController.dispose();
     _titleController.dispose();
     _tagsController.dispose();
+    _titleFocus.dispose();
+    _tagsFocus.dispose();
     _editorFocus.dispose();
     _editorScroll.dispose();
     _findController.dispose();
@@ -1308,15 +1312,40 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
     final date =
         DateFormat.yMMMMd(lang).add_Hm().format(note.updatedAt.toLocal());
 
-    return CallbackShortcuts(
-      bindings: <ShortcutActivator, VoidCallback>{
+    return Shortcuts(
+      shortcuts: <ShortcutActivator, Intent>{
         const SingleActivator(LogicalKeyboardKey.keyF, control: true):
-            _toggleFind,
-        const SingleActivator(LogicalKeyboardKey.escape): () {
-          if (_findVisible) _toggleFind();
-        },
+            const _ToggleFindIntent(),
+        const SingleActivator(LogicalKeyboardKey.escape):
+            const _CloseFindIntent(),
+        const SingleActivator(LogicalKeyboardKey.tab): const NextFocusIntent(),
+        const SingleActivator(LogicalKeyboardKey.tab, shift: true):
+            const PreviousFocusIntent(),
+        const SingleActivator(LogicalKeyboardKey.keyC, control: true):
+            CopySelectionTextIntent.copy,
+        const SingleActivator(LogicalKeyboardKey.keyX, control: true):
+            const CopySelectionTextIntent.cut(SelectionChangedCause.keyboard),
+        const SingleActivator(LogicalKeyboardKey.keyV, control: true):
+            const PasteTextIntent(SelectionChangedCause.keyboard),
+        const SingleActivator(LogicalKeyboardKey.keyA, control: true):
+            const SelectAllTextIntent(SelectionChangedCause.keyboard),
       },
-      child: Column(
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          _ToggleFindIntent: CallbackAction<_ToggleFindIntent>(
+            onInvoke: (_) {
+              _toggleFind();
+              return null;
+            },
+          ),
+          _CloseFindIntent: CallbackAction<_CloseFindIntent>(
+            onInvoke: (_) {
+              if (_findVisible) _toggleFind();
+              return null;
+            },
+          ),
+        },
+        child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _EditorToolbar(
@@ -1381,7 +1410,10 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
                   children: [
                     TextField(
                       controller: _titleController,
+                      focusNode: _titleFocus,
                       readOnly: widget.showTrash,
+                      textInputAction: TextInputAction.next,
+                      onSubmitted: (_) => _tagsFocus.requestFocus(),
                       style: const TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.w700,
@@ -1423,7 +1455,10 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
                     const SizedBox(height: 14),
                     TextField(
                       controller: _tagsController,
+                      focusNode: _tagsFocus,
                       readOnly: widget.showTrash,
+                      textInputAction: TextInputAction.next,
+                      onSubmitted: (_) => _editorFocus.requestFocus(),
                       style: const TextStyle(fontSize: 13),
                       decoration: InputDecoration(
                         hintText: s.tagsHint,
@@ -1494,6 +1529,7 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
         ),
       ],
     ),
+      ),
     );
   }
 
@@ -1593,6 +1629,14 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
     _cachedStylesBrightness = brightness;
     return styles;
   }
+}
+
+class _ToggleFindIntent extends Intent {
+  const _ToggleFindIntent();
+}
+
+class _CloseFindIntent extends Intent {
+  const _CloseFindIntent();
 }
 
 class _QuillToolbar extends ConsumerWidget {
