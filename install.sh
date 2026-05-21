@@ -82,6 +82,9 @@ case "$DISTRO_FAMILY" in
 esac
 
 # ── build como usuario normal ─────────────────────────────────────────────────
+# Eliminar lock desactualizado para que pub resuelva con las restricciones actuales
+rm -f pubspec.lock
+
 info "Descargando dependencias de Flutter..."
 sudo -u "$REAL_USER" "$FLUTTER_BIN" pub get
 
@@ -89,6 +92,20 @@ sudo -u "$REAL_USER" "$FLUTTER_BIN" pub get
 QNBW="$REAL_HOME/.pub-cache/hosted/pub.dev/quill_native_bridge_windows-0.0.2/lib/quill_native_bridge_windows.dart"
 if [ -f "$QNBW" ]; then
   sed -i 's/GlobalAlloc(GMEM_MOVEABLE,/GlobalAlloc(0x0002,/' "$QNBW"
+fi
+
+# Parche: flutter_quill <= 11.5.1 no implementa TextInputClient.onFocusReceived,
+# requerido por Flutter >= 3.44.0
+QUILL_RAW=$(ls "$REAL_HOME/.pub-cache/hosted/pub.dev/flutter_quill-"*/lib/src/editor/raw_editor/raw_editor_state.dart 2>/dev/null | sort -V | tail -1)
+if [[ -n "$QUILL_RAW" ]] && ! grep -q 'onFocusReceived' "$QUILL_RAW"; then
+  awk '
+    /class QuillRawEditorState/ { in_decl=1 }
+    in_decl && /\{/ {
+      sub(/\{/, "{\n  @override\n  bool onFocusReceived() => false;\n")
+      in_decl=0
+    }
+    { print }
+  ' "$QUILL_RAW" > "${QUILL_RAW}.tmp" && mv "${QUILL_RAW}.tmp" "$QUILL_RAW"
 fi
 
 info "Compilando Noto en modo release (esto puede tardar unos minutos)..."
