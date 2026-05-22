@@ -1,6 +1,6 @@
 # Noto
 
-Local encrypted notes for Linux. No accounts, no sync, no cloud.
+Local encrypted notes for Linux and Windows. No accounts, no sync, no cloud.
 
 <br>
 
@@ -29,7 +29,7 @@ Local encrypted notes for Linux. No accounts, no sync, no cloud.
 
 ---
 
-## Install
+## Install on Linux
 
 Requires **Flutter SDK ≥ 3.4** on a Debian/Ubuntu or Fedora system.
 
@@ -49,19 +49,47 @@ sudo ./uninstall.sh   # to remove
 
 ---
 
+## Install on Windows
+
+Requires **Flutter SDK ≥ 3.4** and **Visual Studio 2022** with the "Desktop development with C++" workload.
+
+```powershell
+git clone https://github.com/AngelAragonMartinez/noto_app.git
+cd noto_app
+.\install.ps1
+```
+
+The script generates the app icon, builds Noto in release mode, copies it to `%LOCALAPPDATA%\Programs\Noto`, and adds a Start Menu shortcut.
+
+```powershell
+.\install.ps1 -Uninstall   # to remove
+```
+
+> If PowerShell blocks the script with an execution-policy error, run it as
+> `powershell -ExecutionPolicy Bypass -File .\install.ps1`, or relax the policy once
+> with `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`.
+
+---
+
 ## Build without installing
 
 ```bash
 flutter pub get
-flutter run -d linux           # debug
-flutter build linux --release  # release build → build/linux/x64/release/bundle/
+flutter run -d linux              # debug (Linux)
+flutter build linux --release     # release build → build/linux/x64/release/bundle/
+```
+
+```powershell
+flutter pub get
+flutter run -d windows            # debug (Windows)
+flutter build windows --release   # release build → build/windows/x64/runner/Release/
 ```
 
 ---
 
 ## Your data
 
-Notes live at `~/.local/share/notes_app/`. Uninstalling Noto leaves this folder untouched.
+Notes live at `~/.local/share/notes_app/` on Linux and `%APPDATA%\notes_app\` on Windows. Uninstalling Noto leaves this folder untouched.
 
 Exported files are plaintext — handle them like any sensitive document.
 

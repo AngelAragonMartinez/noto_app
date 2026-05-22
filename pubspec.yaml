@@ -1,5 +1,5 @@
 name: notes_app
-description: "Noto — local encrypted notes for Linux (Flutter)."
+description: "Noto — local encrypted notes for Linux and Windows (Flutter)."
 publish_to: "none"
 version: 1.0.0+1
 
