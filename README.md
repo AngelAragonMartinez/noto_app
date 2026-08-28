@@ -50,7 +50,31 @@ sudo ./uninstall.sh   # to remove
 
 ## Install on Windows
 
-Requires **Flutter SDK ≥ 3.4** and **Visual Studio 2022** with the "Desktop development with C++" workload.
+Download **`Noto-<version>-windows-x64-setup.exe`** from the
+[latest release](https://github.com/AngelAragonMartinez/noto_app/releases/latest)
+and run it. No Flutter SDK, no Visual Studio, no command line.
+
+It installs for the current user only, so Windows does not ask for
+administrator rights. Uninstall from **Settings ▸ Apps** like any other
+program — your notes are left untouched.
+
+Prefer no installer? The same release has
+`Noto-<version>-windows-x64-portable.zip`: unzip it anywhere and run
+`noto.exe`. Every release also ships `SHA256SUMS-windows.txt` so you can
+verify what you downloaded:
+
+```powershell
+Get-FileHash .\Noto-1.0.0-windows-x64-setup.exe -Algorithm SHA256
+```
+
+> Windows SmartScreen may warn that the publisher is unknown, because the
+> installer is not code-signed — a certificate costs money. Choose
+> **More info ▸ Run anyway**, or verify the checksum above first.
+
+### Building it yourself instead
+
+Requires **Flutter SDK ≥ 3.44** and **Visual Studio 2022** with the "Desktop
+development with C++" workload.
 
 ```powershell
 git clone https://github.com/AngelAragonMartinez/noto_app.git
@@ -58,7 +82,8 @@ cd noto_app
 .\install.ps1
 ```
 
-The script generates the app icon, builds Noto in release mode, copies it to `%LOCALAPPDATA%\Programs\Noto`, and adds a Start Menu shortcut.
+The script builds Noto in release mode, copies it to
+`%LOCALAPPDATA%\Programs\Noto`, and adds a Start Menu shortcut.
 
 ```powershell
 .\install.ps1 -Uninstall   # to remove
