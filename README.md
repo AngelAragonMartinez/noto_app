@@ -29,9 +29,13 @@
 
 ## Install on Windows
 
-**[⬇ Download the installer](https://github.com/AngelAragonMartinez/noto_app/releases/latest)** — `Noto-<version>-windows-x64-setup.exe`
+**[⬇ Download the installer](https://github.com/AngelAragonMartinez/noto_app/releases/latest)** — the file ending in **`-windows-x64-setup.exe`**
 
 Double-click it. That's the whole process.
+
+> The file name carries the version — `Noto-1.1.0-windows-x64-setup.exe`, for
+> example. Commands below use `Noto-*` so they work whichever version you
+> downloaded.
 
 - **No admin rights needed.** Noto installs for your user only, so Windows
   never shows a UAC prompt.
@@ -47,15 +51,23 @@ Yes. The installer is not code-signed, because a signing certificate is a paid
 yearly subscription. SmartScreen warns about any unsigned installer regardless
 of what it contains.
 
-Click **More info ▸ Run anyway**, or verify the download first. Every release
-ships `SHA256SUMS-windows.txt`; compare it against:
+Click **More info ▸ Run anyway**, or verify the download first.
+
+Download `SHA256SUMS-windows.txt` alongside the installer, then run this from
+the folder holding both. It prints a verdict rather than leaving you to compare
+64 characters by eye:
 
 ```powershell
-Get-FileHash .\Noto-1.0.0-windows-x64-setup.exe -Algorithm SHA256
+$e = (Get-FileHash .\Noto-*-windows-x64-setup.exe -Algorithm SHA256).Hash.ToLower(); $p = ((Select-String .\SHA256SUMS-windows.txt -Pattern 'setup\.exe').Line -split '\s+')[0]; if ($e -eq $p) { "MATCH - safe to run" } else { "MISMATCH - do not run" }
 ```
 
-If the hash matches, the file is byte-for-byte what CI built from this
-repository.
+A match means the file is byte-for-byte what CI built from this repository.
+
+Both files come from the same release page, so for the strongest check compare
+against the checksum printed in the build log itself: open the run for your
+version under [Actions](https://github.com/AngelAragonMartinez/noto_app/actions),
+job **Windows installer**, step **Checksums**. That line was written by GitHub's
+machine, not by the release.
 </details>
 
 <details>
@@ -63,7 +75,7 @@ repository.
 
 <br>
 
-Grab `Noto-<version>-windows-x64-portable.zip` from the same release, unzip it
+Grab the `-windows-x64-portable.zip` file from the same release, unzip it
 anywhere, and run `noto.exe`. Nothing is written outside the folder you chose
 and your notes directory.
 </details>
@@ -72,10 +84,10 @@ and your notes directory.
 
 ## Install on Linux
 
-**[⬇ Download the tarball](https://github.com/AngelAragonMartinez/noto_app/releases/latest)** — `Noto-<version>-linux-x64.tar.gz`
+**[⬇ Download the tarball](https://github.com/AngelAragonMartinez/noto_app/releases/latest)** — the file ending in **`-linux-x64.tar.gz`**
 
 ```bash
-tar -xzf Noto-1.0.0-linux-x64.tar.gz -C ~/noto
+mkdir -p ~/noto && tar -xzf Noto-*-linux-x64.tar.gz -C ~/noto
 ~/noto/noto
 ```
 
