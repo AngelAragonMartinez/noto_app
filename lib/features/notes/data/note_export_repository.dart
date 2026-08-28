@@ -116,17 +116,47 @@ class NoteExportRepository {
     final exportedAttachments = includeAttachments
         ? await _writeAttachments(note, file)
         : const <_ExportedAttachment>[];
-    if (_isBinary(format)) {
-      final bytes =
-          await _renderBinary(note, format, exportedAttachments, strings);
-      await file.writeAsBytes(bytes, flush: true);
-    } else {
-      await file.writeAsString(
-        _render(note, format, exportedAttachments, strings),
-        flush: true,
-      );
+    // Inline images are encrypted, so reading them is asynchronous while the
+    // HTML, RTF and PDF builders below are synchronous. Decrypt them all once
+    // here; the builders then look them up from memory.
+    await _preloadInlineImages(note.body);
+    try {
+      if (_isBinary(format)) {
+        final bytes =
+            await _renderBinary(note, format, exportedAttachments, strings);
+        await file.writeAsBytes(bytes, flush: true);
+      } else {
+        await file.writeAsString(
+          _render(note, format, exportedAttachments, strings),
+          flush: true,
+        );
+      }
+    } finally {
+      _inlineImageBytes.clear();
     }
     return NoteExportResult(file: file, format: format);
+  }
+
+  /// Decrypted inline images for the export in progress, keyed by absolute
+  /// path. Populated by [_preloadInlineImages] and cleared when the export
+  /// finishes, so nothing plaintext outlives the operation.
+  final Map<String, Uint8List> _inlineImageBytes = {};
+
+  Future<void> _preloadInlineImages(String body) async {
+    _inlineImageBytes.clear();
+    final documents = _documents;
+    if (documents == null) return;
+    for (final op in _deltaOps(body)) {
+      final insert = op['insert'];
+      if (insert is! Map || insert['image'] is! String) continue;
+      final path = _localImageAbsolutePath(insert['image'] as String);
+      if (path == null || _inlineImageBytes.containsKey(path)) continue;
+      try {
+        _inlineImageBytes[path] = await documents.readInlineImage(path);
+      } catch (_) {
+        // Missing or unreadable: the builders render their placeholder.
+      }
+    }
   }
 
   bool _isBinary(NoteExportFormat format) => format == NoteExportFormat.pdf;
@@ -258,15 +288,9 @@ class NoteExportRepository {
   String? _imageToDataUrlForExport(String rawSource) {
     final path = _localImageAbsolutePath(rawSource);
     if (path == null) return null;
-    final file = File(path);
-    if (!file.existsSync()) return null;
-    try {
-      final bytes = file.readAsBytesSync();
-      final mime = _mimeForImagePath(path);
-      return 'data:$mime;base64,${base64Encode(bytes)}';
-    } catch (_) {
-      return null;
-    }
+    final bytes = _inlineImageBytes[path];
+    if (bytes == null) return null;
+    return 'data:${_mimeForImagePath(path)};base64,${base64Encode(bytes)}';
   }
 
   List<Map<String, dynamic>> _deltaOpsWithDataUrlImages(String body) {
@@ -306,14 +330,13 @@ class NoteExportRepository {
       buf.write(r'\par ');
       return;
     }
-    final file = File(path);
-    if (!file.existsSync()) {
+    final bytes = _inlineImageBytes[path];
+    if (bytes == null) {
       buf.write(_rtfEscape('[imagen no encontrada]'));
       buf.write(r'\par ');
       return;
     }
     try {
-      final bytes = file.readAsBytesSync();
       final ext = p.extension(path).toLowerCase();
       final isJpeg = ext == '.jpg' || ext == '.jpeg';
       buf.write(_rtfHexPicture(bytes, isJpeg: isJpeg));
@@ -638,9 +661,8 @@ class NoteExportRepository {
         final path = _localImageAbsolutePath(insert['image'] as String);
         if (path != null) {
           try {
-            final file = File(path);
-            if (file.existsSync()) {
-              final bytes = file.readAsBytesSync();
+            final bytes = _inlineImageBytes[path];
+            if (bytes != null) {
               widgets.add(
                 pw.Padding(
                   padding: const pw.EdgeInsets.only(bottom: 10),
