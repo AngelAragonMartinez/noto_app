@@ -19,7 +19,7 @@ dependencies:
   font_awesome_flutter: ^11.0.0
   go_router: any
   intl: any
-  local_auth: '>=2.3.0 <3.0.0'
+  local_auth: '>=3.0.2 <4.0.0'
   path: any
   path_provider: any
   sqflite_sqlcipher: any

@@ -275,7 +275,7 @@ class NotesHomePage extends ConsumerWidget {
                   opacity: anim,
                   child: SizeTransition(
                     sizeFactor: anim,
-                    axisAlignment: -1,
+                    alignment: Alignment.topCenter,
                     child: child,
                   ),
                 ),
@@ -1038,6 +1038,7 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
 
   QuillControllerConfig _buildQuillConfig() {
     return QuillControllerConfig(
+      // ignore: experimental_member_use
       clipboardConfig: QuillClipboardConfig(
         onImagePaste: (bytes) async {
           return ref.read(documentRepositoryProvider).storeInlineImageBytes(bytes);
@@ -1697,8 +1698,11 @@ class _QuillToolbar extends ConsumerWidget {
                 showAlignmentButtons: true,
                 showDirection: false,
                 showIndent: true,
+                // ignore: experimental_member_use
                 showClipboardCopy: false,
+                // ignore: experimental_member_use
                 showClipboardCut: false,
+                // ignore: experimental_member_use
                 showClipboardPaste: false,
                 buttonOptions: QuillSimpleToolbarButtonOptions(
                   base: QuillToolbarBaseButtonOptions(
@@ -2074,7 +2078,7 @@ class _FindReplaceBar extends StatelessWidget {
         : '${currentIndex + 1} / $matchCount';
 
     return Container(
-      color: colors.surfaceContainerHighest.withOpacity(0.4),
+      color: colors.surfaceContainerHighest.withValues(alpha: 0.4),
       padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2124,7 +2128,7 @@ class _FindReplaceBar extends StatelessWidget {
                 ),
                 style: IconButton.styleFrom(
                   backgroundColor: caseSensitive
-                      ? colors.primary.withOpacity(0.15)
+                      ? colors.primary.withValues(alpha: 0.15)
                       : null,
                   foregroundColor: caseSensitive
                       ? colors.primary

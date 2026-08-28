@@ -154,7 +154,7 @@ class NoteExportRepository {
       final safeName = _uniqueName(_safeAttachmentName(attachment), used);
       used.add(safeName);
       final outFile = File(p.join(attachDir.path, safeName));
-      final bytes = await _documents!.read(attachment);
+      final bytes = await _documents.read(attachment);
       await outFile.writeAsBytes(bytes, flush: true);
       results.add(_ExportedAttachment(
         originalName: attachment.originalName,

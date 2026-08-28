@@ -33,6 +33,12 @@ jobs:
       - name: Patch pub cache
         run: dart run tool/patch_pub_cache.dart
 
+      - name: Upload regenerated pubspec.lock
+        uses: actions/upload-artifact@v4
+        with:
+          name: pubspec-lock
+          path: pubspec.lock
+
       - run: flutter analyze
 
       - run: flutter test

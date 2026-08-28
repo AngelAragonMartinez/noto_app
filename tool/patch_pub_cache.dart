@@ -34,7 +34,7 @@ Directory? _pubCacheDir() {
   if (Platform.isWindows) {
     final localAppData = Platform.environment['LOCALAPPDATA'];
     if (localAppData == null) return null;
-    return Directory('$localAppData\Pub\Cache');
+    return Directory('$localAppData/Pub/Cache');
   }
   final home = Platform.environment['HOME'];
   if (home == null) return null;

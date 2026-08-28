@@ -9,7 +9,7 @@ class SecureKeyStore {
 
   static const _keyName = 'notes_app_vault_key_v1';
   static const _documentKeyName = 'notes_app_document_key_v1';
-  static const _androidOptions = AndroidOptions(encryptedSharedPreferences: true);
+  static const _androidOptions = AndroidOptions();
   static const _iosOptions = IOSOptions(
     accessibility: KeychainAccessibility.first_unlock,
   );
