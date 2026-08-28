@@ -29,3 +29,6 @@ Thumbs.db
 # Local runtime / vault-like artifacts from testing installs
 *.db
 *.enc
+
+# Release packaging output
+dist/
