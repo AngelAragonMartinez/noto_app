@@ -20,6 +20,7 @@ class EncryptedVaultStore implements VaultStore {
   final SecureKeyStore _keyStore;
   final EncryptedCodec _codec;
 
+  @override
   Future<VaultData> read() async {
     final file = await _paths.vaultFile();
     if (!file.existsSync()) {
@@ -39,6 +40,7 @@ class EncryptedVaultStore implements VaultStore {
     );
   }
 
+  @override
   Future<void> write(VaultData data) async {
     final payload = await _codec.encrypt(
       utf8.encode(jsonEncode(data.toJson())),
