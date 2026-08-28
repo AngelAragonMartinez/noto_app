@@ -30,7 +30,13 @@ Local encrypted notes for Linux and Windows. No accounts, no sync, no cloud.
 
 ## Install on Linux
 
-Requires **Flutter SDK ≥ 3.4** on a Debian/Ubuntu or Fedora system.
+Download `Noto-<version>-linux-x64.tar.gz` from the
+[latest release](https://github.com/AngelAragonMartinez/noto_app/releases/latest),
+unpack it anywhere, and run `./noto`. Prebuilt binaries need **glibc 2.36 or
+newer** — Debian 12+, Ubuntu 22.04+, Fedora 37+.
+
+On an older distribution, or to register Noto in your app launcher, build from
+source. Requires **Flutter SDK ≥ 3.44**:
 
 ```bash
 git clone https://github.com/AngelAragonMartinez/noto_app.git

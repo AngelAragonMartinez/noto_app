@@ -86,7 +86,15 @@ jobs:
 
   linux:
     name: Linux tarball
-    runs-on: ubuntu-latest
+    # NOT ubuntu-latest. A glibc-linked binary runs on the version it was built
+    # against or newer, never older. ubuntu-latest is 24.04 (glibc 2.39), which
+    # produced a tarball that would not start on Debian 12 — the current stable.
+    # 22.04 ships glibc 2.35, below Debian 12's 2.36, so the build runs there
+    # and on anything newer. The "Verify glibc floor" step enforces this.
+    #
+    # When 22.04 is retired, move to the oldest available image still at or
+    # below the floor, or build in a debian:bookworm container.
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -108,6 +116,23 @@ jobs:
         run: dart run tool/patch_pub_cache.dart
 
       - run: flutter build linux --release
+
+      - name: Verify glibc floor
+        run: |
+          # A binary needs the glibc it was built against or newer. Debian 12
+          # (bookworm) ships 2.36 and is the oldest release supported here, so
+          # nothing in the bundle may require more than that. Catching it in CI
+          # beats users hitting "GLIBC_2.xx not found" on launch.
+          floor="2.36"
+          max=$(find build/linux/x64/release/bundle -type f -exec objdump -T {} + 2>/dev/null \
+                | grep -oE 'GLIBC_[0-9]+\.[0-9]+' \
+                | sed 's/GLIBC_//' \
+                | sort -uV | tail -1)
+          echo "highest glibc required: ${max:-none} (floor $floor)"
+          if [ -n "$max" ] && [ "$(printf '%s\n' "$max" "$floor" | sort -V | tail -1)" != "$floor" ]; then
+            echo "::error::bundle requires glibc $max, above the $floor floor"
+            exit 1
+          fi
 
       - name: Package
         run: |
