@@ -79,9 +79,11 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'flutter pub get failed' }
 
     Write-Step 'Patching pub cache'
-    # flutter_quill <= 11.5.1 does not implement
-    # TextInputClient.onFocusReceived, required by Flutter >= 3.44.
-    # Without this patch the release build fails to compile.
+    # Two upstream build blockers, fixed rather than suppressed:
+    # local_auth_windows passes MSVC's obsolete /await switch, which forces
+    # <experimental/coroutine> and fails on current toolsets (STL1011); and
+    # flutter_quill <= 11.5.1 lacks TextInputClient.onFocusReceived,
+    # required by Flutter >= 3.44.
     & dart run tool/patch_pub_cache.dart
     if ($LASTEXITCODE -ne 0) { throw 'patching pub cache failed' }
 

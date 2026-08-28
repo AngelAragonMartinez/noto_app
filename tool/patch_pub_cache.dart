@@ -21,13 +21,45 @@ void main(List<String> args) {
   }
   stdout.writeln(':: pub cache: ${cache.path}');
 
-  final applied = _patchFlutterQuillFocus(cache);
+  var applied = 0;
+  applied += _patchFlutterQuillFocus(cache) ? 1 : 0;
+  applied += _patchLocalAuthWindowsAwait(cache) ? 1 : 0;
 
   stdout.writeln(
-    applied
-        ? ':: applied 1 patch'
-        : ':: nothing to patch (already patched, or upstream is fixed)',
+    applied == 0
+        ? ':: nothing to patch (already patched, or upstream is fixed)'
+        : ':: applied $applied patch(es)',
   );
+}
+
+/// local_auth_windows builds with `/await`, MSVC's pre-standard coroutine
+/// switch, which forces `<experimental/coroutine>`. Current MSVC toolsets
+/// reject that header outright (STL1011), failing the plugin build.
+///
+/// The flag is simply obsolete: the same CMakeLists already requests
+/// `cxx_std_20`, and C++20 has coroutines in the language, so dropping
+/// `/await` makes C++/WinRT use the standard `<coroutine>` instead. This
+/// removes the deprecated code path rather than silencing the warning about
+/// it.
+bool _patchLocalAuthWindowsAwait(Directory cache) {
+  var patched = false;
+  for (final dir in _packageDirs(cache, 'local_auth_windows')) {
+    final sep = Platform.pathSeparator;
+    final file = File('${dir.path}${sep}windows${sep}CMakeLists.txt');
+    if (!file.existsSync()) continue;
+
+    final source = file.readAsStringSync();
+    final awaitLine = RegExp(
+      r'^[ \t]*target_compile_options\([^)]*?/await[^)]*\)[ \t]*\r?\n',
+      multiLine: true,
+    );
+    if (!awaitLine.hasMatch(source)) continue;
+
+    file.writeAsStringSync(source.replaceAll(awaitLine, ''));
+    stdout.writeln('   removed /await from ${file.path}');
+    patched = true;
+  }
+  return patched;
 }
 
 /// `$PUB_CACHE`, else the platform default.

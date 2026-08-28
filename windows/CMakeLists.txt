@@ -38,11 +38,7 @@ add_definitions(-DUNICODE -D_UNICODE)
 # default. In most cases, you should add new options to specific targets instead
 # of modifying this function.
 function(APPLY_STANDARD_SETTINGS TARGET)
-  # C++20, not 17. C++/WinRT picks <experimental/coroutine> under C++17,
-  # and current MSVC toolsets reject that header outright (STL1011), which
-  # is what broke the local_auth_windows plugin build. Under C++20 it uses
-  # the standard <coroutine> instead, so no suppression macro is needed.
-  target_compile_features(${TARGET} PUBLIC cxx_std_20)
+  target_compile_features(${TARGET} PUBLIC cxx_std_17)
   target_compile_options(${TARGET} PRIVATE /W4 /WX /wd"4100")
   target_compile_options(${TARGET} PRIVATE /EHsc)
   target_compile_definitions(${TARGET} PRIVATE "_HAS_EXCEPTIONS=0")
