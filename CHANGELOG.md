@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.1.0
+
+### The startup lock is now actually optional
+
+1.0.0 described the lock as optional, but there was no way to turn it off:
+if Windows Hello was configured, Noto asked for it on every launch, and the
+only escape was disabling Windows Hello system-wide — a bad trade for
+everything else on the machine.
+
+A lock button in the top bar now toggles it, and the choice is remembered.
+When the device has no Windows Hello or equivalent, the button is shown
+disabled with an explanation rather than silently doing nothing.
+
+The preference fails safe: a missing, unreadable, or corrupt preference file
+leaves the lock on, so nothing can quietly turn it off.
+
 ## 1.0.0
 
 First release with installable builds. Before this, running Noto on Windows
