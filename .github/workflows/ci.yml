@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: "3.44.0"
+
+jobs:
+  analyze-and-test:
+    name: Analyze and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config \
+            libgtk-3-dev libsecret-1-dev libjsoncpp-dev
+
+      - run: flutter pub get
+
+      - name: Patch pub cache
+        run: dart run tool/patch_pub_cache.dart
+
+      - run: flutter analyze
+
+      - run: flutter test
+
+  build-windows:
+    name: Build Windows (release)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Patch pub cache
+        run: dart run tool/patch_pub_cache.dart
+
+      - run: flutter build windows --release
+
+      - name: Upload Windows bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: noto-windows-x64
+          path: build/windows/x64/runner/Release/
+          if-no-files-found: error
+
+  build-linux:
+    name: Build Linux (release)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config \
+            libgtk-3-dev libsecret-1-dev libjsoncpp-dev
+
+      - run: flutter pub get
+
+      - name: Patch pub cache
+        run: dart run tool/patch_pub_cache.dart
+
+      - run: flutter build linux --release
