@@ -31,7 +31,7 @@ void main() {
     final preference = AppLockPreference(paths: _TempPaths(root));
     await preference.ready;
 
-    expect(preference.debugState, isTrue);
+    expect(preference.state, isTrue);
   });
 
   test('persists being turned off, and reads back off', () async {
@@ -43,7 +43,7 @@ void main() {
 
     final reloaded = AppLockPreference(paths: _TempPaths(root));
     await reloaded.ready;
-    expect(reloaded.debugState, isFalse);
+    expect(reloaded.state, isFalse);
   });
 
   test('turning it back on persists too', () async {
@@ -54,7 +54,7 @@ void main() {
 
     final reloaded = AppLockPreference(paths: _TempPaths(root));
     await reloaded.ready;
-    expect(reloaded.debugState, isTrue);
+    expect(reloaded.state, isTrue);
   });
 
   test('an unreadable or corrupt file leaves the lock ON', () async {
@@ -65,7 +65,7 @@ void main() {
     final preference = AppLockPreference(paths: _TempPaths(root));
     await preference.ready;
 
-    expect(preference.debugState, isTrue);
+    expect(preference.state, isTrue);
   });
 
   test('toggle flips and persists', () async {
@@ -73,11 +73,11 @@ void main() {
     await preference.ready;
 
     await preference.toggle();
-    expect(preference.debugState, isFalse);
+    expect(preference.state, isFalse);
     expect(preferenceFile().readAsStringSync(), 'off');
 
     await preference.toggle();
-    expect(preference.debugState, isTrue);
+    expect(preference.state, isTrue);
     expect(preferenceFile().readAsStringSync(), 'on');
   });
 }
