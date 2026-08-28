@@ -1,8 +1,8 @@
 # Noto — Windows installer
 #
 # Builds Noto for Windows and installs it to %LOCALAPPDATA%\Programs\Noto,
-# creating a Start Menu shortcut. Uses .NET System.Drawing to generate the
-# multi-resolution .ico from assets/icon.png so no external tools are needed.
+# creating a Start Menu shortcut. The app icon is committed at
+# windows/runner/resources/app_icon.ico, generated from assets/icon.png.
 #
 # Usage:
 #   .\install.ps1              # install
@@ -71,80 +71,7 @@ if (-not $vsOk) {
 }
 Write-Ok 'Visual Studio detected'
 
-# --- 2. Generate Windows .ico from assets/icon.png --------------------------
-Write-Step 'Generating Windows icon from assets/icon.png'
-
-$SourcePng = Join-Path $RepoRoot 'assets\icon.png'
-$IcoTarget = Join-Path $RepoRoot 'windows\runner\resources\app_icon.ico'
-
-if (-not (Test-Path $SourcePng)) {
-    Write-Err2 "Missing source PNG: $SourcePng"
-    exit 1
-}
-
-# Back up Flutter's scaffolded .ico so recovery is one rename away if rc.exe
-# rejects the custom-generated file for any reason.
-if ((Test-Path $IcoTarget) -and -not (Test-Path "$IcoTarget.bak")) {
-    Copy-Item -Path $IcoTarget -Destination "$IcoTarget.bak"
-    Write-Ok "Backed up original icon → $IcoTarget.bak"
-}
-
-Add-Type -AssemblyName System.Drawing
-
-$sizes = @(256, 128, 64, 48, 32, 16)
-$pngBuffers = New-Object 'System.Collections.Generic.List[byte[]]'
-$src = [System.Drawing.Image]::FromFile($SourcePng)
-try {
-    foreach ($size in $sizes) {
-        $bmp = New-Object System.Drawing.Bitmap($size, $size)
-        $g = [System.Drawing.Graphics]::FromImage($bmp)
-        $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-        $g.SmoothingMode     = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
-        $g.PixelOffsetMode   = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
-        $g.DrawImage($src, 0, 0, $size, $size)
-        $g.Dispose()
-        $ms = New-Object System.IO.MemoryStream
-        $bmp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)
-        $pngBuffers.Add($ms.ToArray())
-        $bmp.Dispose()
-        $ms.Dispose()
-    }
-} finally {
-    $src.Dispose()
-}
-
-$out = New-Object System.IO.MemoryStream
-$writer = New-Object System.IO.BinaryWriter($out)
-$writer.Write([UInt16]0)                   # reserved
-$writer.Write([UInt16]1)                   # type = icon
-$writer.Write([UInt16]$sizes.Count)        # image count
-
-$offset = 6 + (16 * $sizes.Count)
-for ($i = 0; $i -lt $sizes.Count; $i++) {
-    $sz = $sizes[$i]
-    $data = $pngBuffers[$i]
-    $dim = if ($sz -ge 256) { 0 } else { $sz }   # 0 means 256
-    $writer.Write([byte]$dim)                # width
-    $writer.Write([byte]$dim)                # height
-    $writer.Write([byte]0)                   # palette
-    $writer.Write([byte]0)                   # reserved
-    $writer.Write([UInt16]1)                 # color planes
-    $writer.Write([UInt16]32)                # bits per pixel
-    $writer.Write([UInt32]$data.Length)
-    $writer.Write([UInt32]$offset)
-    $offset += $data.Length
-}
-for ($i = 0; $i -lt $sizes.Count; $i++) {
-    $writer.Write($pngBuffers[$i])
-}
-$writer.Flush()
-[System.IO.File]::WriteAllBytes($IcoTarget, $out.ToArray())
-$writer.Dispose()
-$out.Dispose()
-
-Write-Ok "Wrote $IcoTarget ($($sizes.Count) sizes)"
-
-# --- 3. Build ---------------------------------------------------------------
+# --- 2. Build ---------------------------------------------------------------
 Push-Location $RepoRoot
 try {
     Write-Step 'Resolving dependencies (flutter pub get)'
@@ -162,10 +89,6 @@ try {
     & flutter build windows --release
     if ($LASTEXITCODE -ne 0) {
         Write-Err2 ''
-        Write-Err2 "If the failure was at Runner.rc / rc.exe (icon resource),"
-        Write-Err2 "restore the scaffolded icon and rebuild manually:"
-        Write-Err2 "  Copy-Item -Force `"$IcoTarget.bak`" `"$IcoTarget`""
-        Write-Err2 "  flutter build windows --release"
         throw 'flutter build windows --release failed'
     }
 } finally {
@@ -185,7 +108,7 @@ if (-not (Test-Path $ExeInBuild)) {
 }
 Write-Ok "Release bundle: $BuildDir"
 
-# --- 4. Install -------------------------------------------------------------
+# --- 3. Install -------------------------------------------------------------
 Write-Step "Installing to $InstallDir"
 if (Test-Path $InstallDir) {
     Remove-Item -Recurse -Force $InstallDir
@@ -196,7 +119,7 @@ Write-Ok 'Copied release files'
 
 $ExePath = Join-Path $InstallDir "$BinaryName.exe"
 
-# --- 5. Start Menu shortcut -------------------------------------------------
+# --- 4. Start Menu shortcut -------------------------------------------------
 Write-Step 'Creating Start Menu shortcut'
 $shortcutParent = Split-Path -Parent $ShortcutPath
 if (-not (Test-Path $shortcutParent)) {

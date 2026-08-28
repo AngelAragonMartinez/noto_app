@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -7,6 +5,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../app/app_metadata.dart';
 import '../../app/app_strings.dart';
 import '../../app/document_logo.dart';
+import '../documents/data/document_repository.dart';
 
 Future<void> showNotoAboutDialog(
   BuildContext context,
@@ -22,12 +21,11 @@ class _NotoAboutDialog extends ConsumerWidget {
   const _NotoAboutDialog();
 
   Future<void> _openUrl(String url) async {
+    // Was hardcoded to xdg-open, so the repository link silently did nothing
+    // on Windows. DocumentRepository.openWithSystem picks the right handler
+    // per platform and keeps the shell out of the chain.
     try {
-      await Process.start(
-        'xdg-open',
-        [url],
-        mode: ProcessStartMode.detached,
-      );
+      await DocumentRepository.openWithSystem(url);
     } catch (_) {}
   }
 
