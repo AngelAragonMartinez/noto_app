@@ -4,7 +4,6 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_selector/file_selector.dart';
-import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
@@ -60,7 +59,9 @@ class DocumentRepository {
   /// Accented Latin letters are kept so Spanish file names survive intact.
   ///
   /// Returns [fallback] when nothing usable remains.
-  @visibleForTesting
+  ///
+  /// Shared with NoteExportRepository so both places that turn an attachment
+  /// name into a real file apply the same rules.
   static String safeFileName(String rawName, {required String fallback}) {
     // Keep only the last segment, treating both separators as such on every
     // platform: p.basename ignores '\' on Unix, and an attachment name can

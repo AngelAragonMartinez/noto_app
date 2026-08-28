@@ -1,6 +1,17 @@
-# Noto
+<h1 align="center">Noto</h1>
 
-Local encrypted notes for Linux and Windows. No accounts, no sync, no cloud.
+<p align="center">
+  <strong>Local encrypted notes for Windows and Linux.</strong><br>
+  No accounts. No sync. No cloud. Nothing leaves your machine.
+</p>
+
+<p align="center">
+  <a href="https://github.com/AngelAragonMartinez/noto_app/releases/latest">
+    <img src="https://img.shields.io/github/v/release/AngelAragonMartinez/noto_app?label=download&style=for-the-badge" alt="Latest release"/>
+  </a>
+  <img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="MIT"/>
+  <img src="https://img.shields.io/badge/encryption-AES--256--GCM-brightgreen?style=for-the-badge" alt="AES-256-GCM"/>
+</p>
 
 <br>
 
@@ -16,27 +27,67 @@ Local encrypted notes for Linux and Windows. No accounts, no sync, no cloud.
 
 ---
 
-## Features
+## Install on Windows
 
-- Encrypts your vault, attachments, and embedded images with **AES-256-GCM** — keys live in the OS keyring, never on disk in plaintext
-- Rich text editor: bold, italic, lists, code blocks, and inline images
-- Export to **PDF, RTF, Markdown, HTML, plain text,** and **JSON**
-- Import from text, Markdown, HTML, and JSON — JSON round-trips formatting; the others import as text
-- Trash with restore and permanent delete
-- Light and dark themes · English and Spanish
-- Optional biometric lock on startup
+**[⬇ Download the installer](https://github.com/AngelAragonMartinez/noto_app/releases/latest)** — `Noto-<version>-windows-x64-setup.exe`
+
+Double-click it. That's the whole process.
+
+- **No admin rights needed.** Noto installs for your user only, so Windows
+  never shows a UAC prompt.
+- **No developer tools.** You do not need Flutter, Visual Studio, or a terminal.
+- **Uninstalls normally**, from Settings ▸ Apps. Your notes are left untouched.
+
+<details>
+<summary><strong>Windows says "unknown publisher" — is that normal?</strong></summary>
+
+<br>
+
+Yes. The installer is not code-signed, because a signing certificate is a paid
+yearly subscription. SmartScreen warns about any unsigned installer regardless
+of what it contains.
+
+Click **More info ▸ Run anyway**, or verify the download first. Every release
+ships `SHA256SUMS-windows.txt`; compare it against:
+
+```powershell
+Get-FileHash .\Noto-1.0.0-windows-x64-setup.exe -Algorithm SHA256
+```
+
+If the hash matches, the file is byte-for-byte what CI built from this
+repository.
+</details>
+
+<details>
+<summary><strong>I'd rather not install anything</strong></summary>
+
+<br>
+
+Grab `Noto-<version>-windows-x64-portable.zip` from the same release, unzip it
+anywhere, and run `noto.exe`. Nothing is written outside the folder you chose
+and your notes directory.
+</details>
 
 ---
 
 ## Install on Linux
 
-Download `Noto-<version>-linux-x64.tar.gz` from the
-[latest release](https://github.com/AngelAragonMartinez/noto_app/releases/latest),
-unpack it anywhere, and run `./noto`. Prebuilt binaries need **glibc 2.36 or
-newer** — Debian 12+, Ubuntu 22.04+, Fedora 37+.
+**[⬇ Download the tarball](https://github.com/AngelAragonMartinez/noto_app/releases/latest)** — `Noto-<version>-linux-x64.tar.gz`
 
-On an older distribution, or to register Noto in your app launcher, build from
-source. Requires **Flutter SDK ≥ 3.44**:
+```bash
+tar -xzf Noto-1.0.0-linux-x64.tar.gz -C ~/noto
+~/noto/noto
+```
+
+Prebuilt binaries need **glibc 2.36 or newer** — Debian 12+, Ubuntu 22.04+,
+Fedora 37+.
+
+<details>
+<summary><strong>Build from source instead</strong> (older distros, or to register Noto in your app launcher)</summary>
+
+<br>
+
+Requires **Flutter SDK ≥ 3.44**:
 
 ```bash
 git clone https://github.com/AngelAragonMartinez/noto_app.git
@@ -44,102 +95,92 @@ cd noto_app
 sudo ./install.sh
 ```
 
-The script installs system dependencies, builds Noto, and registers it in your app launcher.
+The script installs system dependencies, builds Noto, and adds it to your
+application menu.
 
 ```bash
 sudo ./uninstall.sh   # to remove
 ```
 
-> On other distributions, install the GTK 3, libsecret, and jsoncpp development packages before running the script.
+On distributions other than Debian/Ubuntu and Fedora, install the GTK 3,
+libsecret, and jsoncpp development packages first.
+</details>
 
 ---
 
-## Install on Windows
+## What it does
 
-Download **`Noto-<version>-windows-x64-setup.exe`** from the
-[latest release](https://github.com/AngelAragonMartinez/noto_app/releases/latest)
-and run it. No Flutter SDK, no Visual Studio, no command line.
-
-It installs for the current user only, so Windows does not ask for
-administrator rights. Uninstall from **Settings ▸ Apps** like any other
-program — your notes are left untouched.
-
-Prefer no installer? The same release has
-`Noto-<version>-windows-x64-portable.zip`: unzip it anywhere and run
-`noto.exe`. Every release also ships `SHA256SUMS-windows.txt` so you can
-verify what you downloaded:
-
-```powershell
-Get-FileHash .\Noto-1.0.0-windows-x64-setup.exe -Algorithm SHA256
-```
-
-> Windows SmartScreen may warn that the publisher is unknown, because the
-> installer is not code-signed — a certificate costs money. Choose
-> **More info ▸ Run anyway**, or verify the checksum above first.
-
-### Building it yourself instead
-
-Requires **Flutter SDK ≥ 3.44** and **Visual Studio 2022** with the "Desktop
-development with C++" workload.
-
-```powershell
-git clone https://github.com/AngelAragonMartinez/noto_app.git
-cd noto_app
-.\install.ps1
-```
-
-The script builds Noto in release mode, copies it to
-`%LOCALAPPDATA%\Programs\Noto`, and adds a Start Menu shortcut.
-
-```powershell
-.\install.ps1 -Uninstall   # to remove
-```
-
-> If PowerShell blocks the script with an execution-policy error, run it as
-> `powershell -ExecutionPolicy Bypass -File .\install.ps1`, or relax the policy once
-> with `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`.
+- **Rich text editor** — bold, italic, lists, quotes, code blocks, alignment,
+  links, find and replace, and images placed inline in the text
+- **Export** to PDF, RTF, Markdown, HTML, plain text, and JSON
+- **Import** from text, Markdown, HTML, and JSON — JSON round-trips formatting;
+  the others come in as text
+- **Attachments** stored inside the vault, opened with your default app
+- **Trash** with restore and permanent delete
+- **Light and dark themes**, English and Spanish
+- **Optional lock on startup**, using Windows Hello or your device credential
 
 ---
 
-## Build without installing
+## How your notes are protected
 
-```bash
-flutter pub get
-flutter run -d linux              # debug (Linux)
-flutter build linux --release     # release build → build/linux/x64/release/bundle/
-```
+Everything Noto stores on disk is encrypted with **AES-256-GCM**: the vault
+itself, per-note attachments, and images embedded in note bodies. A fresh
+random nonce is generated for every single write.
 
-```powershell
-flutter pub get
-flutter run -d windows            # debug (Windows)
-flutter build windows --release   # release build → build/windows/x64/runner/Release/
-```
+The encryption keys are generated from a cryptographically secure random
+source and kept in your operating system's keyring — Credential Manager on
+Windows, libsecret on Linux. **They are never written to disk in plaintext.**
 
----
+Noto makes **no network requests of any kind**. There is no telemetry, no
+analytics, no update check, and no account. The application has never had a
+line of networking code in it.
 
-## Your data
-
-Noto keeps everything in one folder:
+### Where your notes live
 
 | Platform | Location |
 |---|---|
-| Linux | `~/.local/share/noto/notes_app/` |
 | Windows | `%APPDATA%\Noto contributors\Noto\notes_app\` |
+| Linux | `~/.local/share/noto/notes_app/` |
 
-Inside it, the vault, per-note attachments, and images embedded in note bodies
-are all encrypted with AES-256-GCM. Uninstalling Noto leaves this folder
-untouched.
+Uninstalling Noto leaves this folder alone. Back it up like any other
+irreplaceable data — there is no cloud copy, by design.
 
-Exported files are plaintext — handle them like any sensitive document.
+### What is *not* protected
+
+Two things worth knowing, stated plainly rather than buried:
+
+- **Exported files are plaintext.** A PDF or Markdown file you save is a normal
+  document. Handle it accordingly.
+- **Opening an attachment** writes a decrypted copy to your temp directory, so
+  the operating system can hand it to the right application. Noto deletes those
+  copies when it closes, and clears any a crash left behind on next launch —
+  but while an attachment is open, a plaintext copy exists.
+
+Full details in [SECURITY.md](SECURITY.md).
 
 ---
 
-## Security
+## Development
 
-To report a vulnerability, open a [private security advisory](https://github.com/AngelAragonMartinez/noto_app/security/advisories/new) on GitHub rather than a public issue.
+```bash
+flutter pub get
+dart run tool/patch_pub_cache.dart   # see the script for what and why
+flutter run -d windows               # or: -d linux
+```
+
+```bash
+flutter analyze
+flutter test
+```
+
+Every pull request runs analysis, tests, and release builds for both platforms.
+Releases are cut by pushing a `v*` tag, which builds and publishes the
+installer, the portable archive, the Linux tarball, and their checksums.
 
 ---
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) — see [CHANGELOG.md](CHANGELOG.md) for what changed between
+versions.

@@ -82,8 +82,10 @@ case "$DISTRO_FAMILY" in
 esac
 
 # ── build como usuario normal ─────────────────────────────────────────────────
-# Eliminar lock desactualizado para que pub resuelva con las restricciones actuales
-rm -f pubspec.lock
+# No se borra pubspec.lock. Antes se hacía porque las restricciones estaban sin
+# fijar y el lock quedaba obsoleto; ahora están fijadas y el lock es justo la
+# resolución que CI compila y verifica. Borrarlo haría que cada instalación
+# resolviera versiones distintas, que es exactamente lo que rompió Windows.
 
 info "Descargando dependencias de Flutter..."
 sudo -u "$REAL_USER" "$FLUTTER_BIN" pub get
