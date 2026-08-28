@@ -194,12 +194,14 @@ class NoteExportRepository {
   }
 
   String _safeAttachmentName(NoteAttachment attachment) {
-    final base = p.basename(attachment.originalName);
-    final cleaned = base.replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1F]'), '_').trim();
-    if (cleaned.isEmpty || cleaned == '.' || cleaned == '..') {
-      return '${attachment.id}.bin';
-    }
-    return cleaned;
+    // Shares the hardened sanitiser rather than keeping a second, weaker copy:
+    // this one only stripped the characters Windows forbids in a file name, so
+    // an export folder could still receive names with shell metacharacters or
+    // Windows device names in them.
+    return DocumentRepository.safeFileName(
+      attachment.originalName,
+      fallback: '${attachment.id}.bin',
+    );
   }
 
   String _uniqueName(String name, Set<String> used) {
