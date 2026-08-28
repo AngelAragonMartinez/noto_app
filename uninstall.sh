@@ -21,6 +21,8 @@ info "Eliminando Noto..."
 rm -f  "/usr/bin/$BINARY_NAME"
 rm -f  "/usr/local/bin/$BINARY_NAME"
 rm -rf "/opt/$BINARY_NAME"
+# Ruta usada por el instalador duplicado que vivia en scripts/install.sh
+rm -rf "/usr/local/lib/$BINARY_NAME"
 rm -f  "/usr/share/applications/$APP_ID.desktop"
 rm -f  "/usr/share/applications/$BINARY_NAME.desktop"  # legacy name, anterior al fix de Wayland
 for size in 48 64 128 256 512; do

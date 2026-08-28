@@ -44,6 +44,10 @@ class EncryptedCodec {
 
   static const algorithmName = 'AES-256-GCM';
 
+  /// Envelope format this build understands. Bump only alongside a reader that
+  /// can still open every older version.
+  static const supportedVersion = 1;
+
   final AesGcm _algorithm;
 
   Future<EncryptedPayload> encrypt(List<int> clearText, List<int> key) async {
@@ -65,6 +69,11 @@ class EncryptedCodec {
   Future<Uint8List> decrypt(EncryptedPayload payload, List<int> key) async {
     if (payload.algorithm != algorithmName) {
       throw StateError('Unsupported vault algorithm: ${payload.algorithm}');
+    }
+    // Without this, a payload from a future format would fail as an opaque
+    // authentication error rather than saying what actually went wrong.
+    if (payload.version != supportedVersion) {
+      throw StateError('Unsupported vault payload version: ${payload.version}');
     }
     final clearText = await _algorithm.decrypt(
       SecretBox(
