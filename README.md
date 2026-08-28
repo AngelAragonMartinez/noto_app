@@ -18,11 +18,10 @@ Local encrypted notes for Linux and Windows. No accounts, no sync, no cloud.
 
 ## Features
 
-- Encrypts your vault with **AES-256-GCM** — keys live in the OS keyring, never on disk in plaintext
+- Encrypts your vault, attachments, and embedded images with **AES-256-GCM** — keys live in the OS keyring, never on disk in plaintext
 - Rich text editor: bold, italic, lists, code blocks, and inline images
-- Encrypted per-note attachments
 - Export to **PDF, RTF, Markdown, HTML, plain text,** and **JSON**
-- Import from text, Markdown, HTML, and JSON
+- Import from text, Markdown, HTML, and JSON — JSON round-trips formatting; the others import as text
 - Trash with restore and permanent delete
 - Light and dark themes · English and Spanish
 - Optional biometric lock on startup
@@ -89,7 +88,16 @@ flutter build windows --release   # release build → build/windows/x64/runner/R
 
 ## Your data
 
-Notes live at `~/.local/share/notes_app/` on Linux and `%APPDATA%\notes_app\` on Windows. Uninstalling Noto leaves this folder untouched.
+Noto keeps everything in one folder:
+
+| Platform | Location |
+|---|---|
+| Linux | `~/.local/share/noto/notes_app/` |
+| Windows | `%APPDATA%\Noto contributors\Noto\notes_app\` |
+
+Inside it, the vault, per-note attachments, and images embedded in note bodies
+are all encrypted with AES-256-GCM. Uninstalling Noto leaves this folder
+untouched.
 
 Exported files are plaintext — handle them like any sensitive document.
 

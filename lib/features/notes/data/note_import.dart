@@ -71,6 +71,10 @@ class NoteImportResult {
         title = m.group(1)!.trim();
         body = body.substring(m.end);
       }
+    } else if (ext == '.html' || ext == '.htm') {
+      final htmlTitle = _htmlTitle(body);
+      if (htmlTitle.isNotEmpty) title = htmlTitle;
+      body = _htmlToText(body);
     }
 
     body = body.replaceAll(RegExp(r'\s+$'), '');
@@ -83,6 +87,91 @@ class NoteImportResult {
       title: title,
       body: jsonEncode(doc.toDelta().toJson()),
     );
+  }
+
+  /// The document's `<title>`, which names a note better than its file name.
+  static String _htmlTitle(String html) {
+    final match = RegExp(
+      r'<title[^>]*>(.*?)</title>',
+      caseSensitive: false,
+      dotAll: true,
+    ).firstMatch(html);
+    if (match == null) return '';
+    return _decodeHtmlEntities(match.group(1)!).trim().replaceAll(
+          RegExp(r'\s+'),
+          ' ',
+        );
+  }
+
+  /// Flattens HTML to readable text.
+  ///
+  /// Noto stores bodies as Quill deltas and has no HTML parser, so imported
+  /// markup previously landed in the note as literal `<p>` tags. This keeps
+  /// the prose and the line breaks and drops everything else — no formatting
+  /// is carried over.
+  static String _htmlToText(String html) {
+    var text = html;
+    // Script and style bodies are code, not prose.
+    text = text.replaceAll(
+      RegExp(
+        r'<(script|style)[^>]*>.*?</\1\s*>',
+        caseSensitive: false,
+        dotAll: true,
+      ),
+      '',
+    );
+    text = text.replaceAll(RegExp(r'<!--.*?-->', dotAll: true), '');
+    // Turn block boundaries into line breaks before the tags disappear.
+    text = text.replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n');
+    text = text.replaceAll(
+      RegExp(
+        r'</(p|div|li|tr|h[1-6]|blockquote|pre|section|article)\s*>',
+        caseSensitive: false,
+      ),
+      '\n',
+    );
+    text = text.replaceAll(RegExp(r'<[^>]*>'), '');
+    text = _decodeHtmlEntities(text);
+    // Stripping tags leaves ragged whitespace behind.
+    text = text.replaceAll(RegExp(r'[ \t]+\n'), '\n');
+    text = text.replaceAll(RegExp(r'\n{3,}'), '\n\n');
+    return text.trim();
+  }
+
+  static const _namedHtmlEntities = {
+    '&lt;': '<',
+    '&gt;': '>',
+    '&quot;': '"',
+    '&apos;': "'",
+    '&#39;': "'",
+    '&nbsp;': ' ',
+    '&hellip;': '…',
+    '&mdash;': '—',
+    '&ndash;': '–',
+    '&laquo;': '«',
+    '&raquo;': '»',
+  };
+
+  static String _decodeHtmlEntities(String value) {
+    var out = value;
+    _namedHtmlEntities.forEach((entity, char) {
+      out = out.replaceAll(entity, char);
+    });
+    out = out.replaceAllMapped(
+      RegExp(r'&#(\d{1,7});'),
+      (m) => _codePoint(int.tryParse(m.group(1)!), m[0]!),
+    );
+    out = out.replaceAllMapped(
+      RegExp(r'&#[xX]([0-9a-fA-F]{1,6});'),
+      (m) => _codePoint(int.tryParse(m.group(1)!, radix: 16), m[0]!),
+    );
+    // Ampersand last, so "&amp;lt;" decodes to "&lt;" rather than to "<".
+    return out.replaceAll('&amp;', '&');
+  }
+
+  static String _codePoint(int? value, String original) {
+    if (value == null || value < 0 || value > 0x10FFFF) return original;
+    return String.fromCharCode(value);
   }
 
   static String _titleFromFileName(String name) {

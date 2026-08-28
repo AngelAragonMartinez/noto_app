@@ -1,0 +1,14 @@
+* text=auto eol=lf
+
+# Shell scripts break on Linux with CRLF line endings ("bad interpreter"),
+# so they must stay LF even when edited on Windows.
+*.sh text eol=lf
+
+# PowerShell is happy either way; keep CRLF so the file opens cleanly in
+# Windows editors.
+*.ps1 text eol=crlf
+
+# Binary assets must never be line-ending converted.
+*.png binary
+*.ico binary
+*.pdf binary
