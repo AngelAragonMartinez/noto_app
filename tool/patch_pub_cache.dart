@@ -41,23 +41,43 @@ void main(List<String> args) {
 /// `/await` makes C++/WinRT use the standard `<coroutine>` instead. This
 /// removes the deprecated code path rather than silencing the warning about
 /// it.
+/// Dropping the flag then exposes a second problem: under `/await`'s relaxed
+/// rules the plugin returns from a coroutine with plain `return`, which
+/// standard C++20 rejects (C3773). Upstream has already switched that line to
+/// `co_return` on main; 2.0.2 predates the change.
 bool _patchLocalAuthWindowsAwait(Directory cache) {
   var patched = false;
   for (final dir in _packageDirs(cache, 'local_auth_windows')) {
     final sep = Platform.pathSeparator;
-    final file = File('${dir.path}${sep}windows${sep}CMakeLists.txt');
-    if (!file.existsSync()) continue;
 
-    final source = file.readAsStringSync();
-    final awaitLine = RegExp(
-      r'^[ \t]*target_compile_options\([^)]*?/await[^)]*\)[ \t]*\r?\n',
-      multiLine: true,
-    );
-    if (!awaitLine.hasMatch(source)) continue;
+    final cmake = File('${dir.path}${sep}windows${sep}CMakeLists.txt');
+    if (cmake.existsSync()) {
+      final source = cmake.readAsStringSync();
+      final awaitLine = RegExp(
+        r'^[ \t]*target_compile_options\([^)]*?/await[^)]*\)[ \t]*\r?\n',
+        multiLine: true,
+      );
+      if (awaitLine.hasMatch(source)) {
+        cmake.writeAsStringSync(source.replaceAll(awaitLine, ''));
+        stdout.writeln('   removed /await from ${cmake.path}');
+        patched = true;
+      }
+    }
 
-    file.writeAsStringSync(source.replaceAll(awaitLine, ''));
-    stdout.writeln('   removed /await from ${file.path}');
-    patched = true;
+    final plugin = File('${dir.path}${sep}windows${sep}local_auth_plugin.cpp');
+    if (plugin.existsSync()) {
+      final source = plugin.readAsStringSync();
+      // The only `return` inside a coroutine here: the surrounding function
+      // co_awaits RequestVerificationForWindowAsync. Every other `return` in
+      // the file is in an ordinary function and must stay as it is.
+      const from = 'return consent_result;';
+      const to = 'co_return consent_result;';
+      if (source.contains(from) && !source.contains(to)) {
+        plugin.writeAsStringSync(source.replaceAll(from, to));
+        stdout.writeln('   return -> co_return in ${plugin.path}');
+        patched = true;
+      }
+    }
   }
   return patched;
 }
