@@ -203,6 +203,8 @@ class AppStrings {
 
   String get notePreviewEmpty => _es ? 'Vacío' : 'Empty';
 
+  String get appLockUnlock => _es ? 'Desbloquear' : 'Unlock';
+
   String get saveChangesTitle => _es ? '¿Guardar cambios?' : 'Save changes?';
 
   String get saveChangesBody => _es

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/app_strings.dart';
 import '../../../core/security/security_providers.dart';
 
 class AppLockGate extends ConsumerStatefulWidget {
@@ -47,7 +48,7 @@ class _AppLockGateState extends ConsumerState<AppLockGate> {
             : FilledButton.icon(
                 onPressed: _unlock,
                 icon: const Icon(Icons.lock_open_rounded),
-                label: const Text('Unlock'),
+                label: Text(ref.watch(appStringsProvider).appLockUnlock),
               ),
       ),
     );

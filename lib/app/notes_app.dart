@@ -43,9 +43,16 @@ class _NotesAppState extends ConsumerState<NotesApp>
     setState(() {});
   }
 
+  /// Removes the plaintext attachment copies opening an attachment leaves in
+  /// the system temp directory.
+  Future<void> _cleanUpDecryptedTempFiles() async {
+    await ref.read(documentRepositoryProvider).cleanUpTempFiles();
+  }
+
   Future<AppExitResponse> _onExitRequested() async {
     final ctx = rootNavigatorKey.currentContext;
     if (ctx == null || !ctx.mounted) {
+      await _cleanUpDecryptedTempFiles();
       return AppExitResponse.exit;
     }
     final notesState = ref.read(notesControllerProvider);
@@ -53,6 +60,7 @@ class _NotesAppState extends ConsumerState<NotesApp>
     final dirty =
         notesState.notes.where((n) => ctrl.isNoteDirty(n)).toList();
     if (dirty.isEmpty) {
+      await _cleanUpDecryptedTempFiles();
       return AppExitResponse.exit;
     }
 
@@ -65,6 +73,7 @@ class _NotesAppState extends ConsumerState<NotesApp>
         return AppExitResponse.cancel;
       case QuitUnsavedOutcome.discardAndExit:
       case QuitUnsavedOutcome.savedAndExit:
+        await _cleanUpDecryptedTempFiles();
         return AppExitResponse.exit;
     }
   }

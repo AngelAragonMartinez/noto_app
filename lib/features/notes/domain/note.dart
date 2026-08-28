@@ -29,7 +29,6 @@ class Note {
 
   // Lazy cache: each Note instance is replaced on save, so this stays cheap.
   String? _cachedPlainText;
-  String? _cachedPreview;
 
   bool get isDeleted => deletedAt != null;
 
@@ -52,15 +51,6 @@ class Note {
     } catch (_) {}
     _cachedPlainText = body;
     return body;
-  }
-
-  String get preview {
-    if (_cachedPreview != null) return _cachedPreview!;
-    final text = bodyPlainText.trim().replaceAll(RegExp(r'\s+'), ' ');
-    _cachedPreview = text.isEmpty
-        ? 'Empty'
-        : (text.length <= 120 ? text : '${text.substring(0, 120)}...');
-    return _cachedPreview!;
   }
 
   Note copyWith({
