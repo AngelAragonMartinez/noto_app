@@ -13,6 +13,8 @@ import '../../../app/app_strings.dart';
 import '../../../app/document_logo.dart';
 import '../../../app/locale_controller.dart';
 import '../../../app/theme_controller.dart';
+import '../../../core/security/app_lock_preference.dart';
+import '../../../core/security/security_providers.dart';
 import '../../about/about_dialog.dart';
 import '../application/notes_controller.dart';
 import '../data/note_export_repository.dart';
@@ -251,6 +253,7 @@ class NotesHomePage extends ConsumerWidget {
                 .toggleEnglishSpanish(),
             icon: const Icon(Icons.translate_rounded),
           ),
+          const _AppLockToggle(),
           IconButton(
             tooltip: s.about,
             onPressed: () => showNotoAboutDialog(context, ref),
@@ -2270,5 +2273,57 @@ Future<void> _showFormatMenu(
   );
   if (selected != null) {
     await onExport(preferredFormat: selected);
+  }
+}
+
+/// Turns the startup lock on and off.
+///
+/// Shown disabled, with an explanation, when the device has no Windows Hello
+/// or equivalent — the lock cannot engage there, and a toggle that silently
+/// does nothing is worse than one that says why.
+class _AppLockToggle extends ConsumerStatefulWidget {
+  const _AppLockToggle();
+
+  @override
+  ConsumerState<_AppLockToggle> createState() => _AppLockToggleState();
+}
+
+class _AppLockToggleState extends ConsumerState<_AppLockToggle> {
+  bool? _available;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_checkAvailability());
+  }
+
+  Future<void> _checkAvailability() async {
+    final available =
+        await ref.read(appLockControllerProvider).canUseBiometrics();
+    if (!mounted) return;
+    setState(() => _available = available);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = ref.watch(appStringsProvider);
+    final enabled = ref.watch(appLockEnabledProvider);
+    final available = _available;
+
+    if (available == null) {
+      return const SizedBox(width: 48);
+    }
+
+    return IconButton(
+      tooltip: available
+          ? (enabled ? s.appLockToggleOn : s.appLockToggleOff)
+          : s.appLockUnavailable,
+      onPressed: available
+          ? () => ref.read(appLockEnabledProvider.notifier).toggle()
+          : null,
+      icon: Icon(
+        enabled && available ? Icons.lock_rounded : Icons.lock_open_rounded,
+      ),
+    );
   }
 }

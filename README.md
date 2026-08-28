@@ -118,7 +118,7 @@ libsecret, and jsoncpp development packages first.
 - **Attachments** stored inside the vault, opened with your default app
 - **Trash** with restore and permanent delete
 - **Light and dark themes**, English and Spanish
-- **Optional lock on startup**, using Windows Hello or your device credential
+- **Optional lock on startup**, using Windows Hello or your device credential — toggle it from the lock button in the top bar
 
 ---
 

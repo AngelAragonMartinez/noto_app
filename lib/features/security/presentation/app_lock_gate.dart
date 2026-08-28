@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/app_strings.dart';
+import '../../../core/security/app_lock_preference.dart';
 import '../../../core/security/security_providers.dart';
 
 class AppLockGate extends ConsumerStatefulWidget {
@@ -24,8 +25,22 @@ class _AppLockGateState extends ConsumerState<AppLockGate> {
   }
 
   Future<void> _unlock() async {
-    final controller = ref.read(appLockControllerProvider);
-    final unlocked = await controller.unlock();
+    // Wait for the stored preference before deciding: the notifier starts at
+    // its safe default, so reading it early would prompt even when the user
+    // has turned the lock off.
+    await ref.read(appLockEnabledProvider.notifier).ready;
+    if (!mounted) {
+      return;
+    }
+    if (!ref.read(appLockEnabledProvider)) {
+      setState(() {
+        _unlocked = true;
+        _checking = false;
+      });
+      return;
+    }
+
+    final unlocked = await ref.read(appLockControllerProvider).unlock();
     if (!mounted) {
       return;
     }

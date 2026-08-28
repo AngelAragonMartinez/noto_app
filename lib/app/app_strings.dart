@@ -205,6 +205,18 @@ class AppStrings {
 
   String get appLockUnlock => _es ? 'Desbloquear' : 'Unlock';
 
+  String get appLockToggleOn => _es
+      ? 'Bloqueo al abrir: activado (desactivar)'
+      : 'Lock on startup: on (turn off)';
+
+  String get appLockToggleOff => _es
+      ? 'Bloqueo al abrir: desactivado (activar)'
+      : 'Lock on startup: off (turn on)';
+
+  String get appLockUnavailable => _es
+      ? 'Este equipo no tiene Windows Hello ni un bloqueo equivalente'
+      : 'This device has no Windows Hello or equivalent lock';
+
   String get saveChangesTitle => _es ? '¿Guardar cambios?' : 'Save changes?';
 
   String get saveChangesBody => _es
