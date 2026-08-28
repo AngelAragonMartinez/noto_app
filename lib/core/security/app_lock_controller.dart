@@ -16,11 +16,16 @@ class AppLockController {
   }
 
   Future<bool> unlock() async {
+    // Nothing to unlock against: the device has no biometric or credential
+    // check configured, so the lock is not in play at all.
     if (!await canUseBiometrics()) {
       return true;
     }
     try {
-      return _localAuth.authenticate(
+      // `return await` matters: without awaiting, the returned future escapes
+      // this try block and a rejected authentication propagated out of
+      // unlock() instead, leaving AppLockGate stuck on its spinner forever.
+      return await _localAuth.authenticate(
         localizedReason: 'Unlock to open your notes',
         // local_auth 3.x flattened AuthenticationOptions into named
         // parameters; stickyAuth is now persistAcrossBackgrounding.
@@ -28,7 +33,9 @@ class AppLockController {
         persistAcrossBackgrounding: true,
       );
     } catch (_) {
-      return true;
+      // Fail closed. A lock that opens whenever authentication errors out is
+      // not a lock, and AppLockGate keeps a retry button on screen.
+      return false;
     }
   }
 }

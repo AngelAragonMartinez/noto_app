@@ -6,9 +6,8 @@ import '../domain/note.dart';
 import '../domain/note_attachment.dart';
 
 class NotesRepository {
-  NotesRepository({required VaultStore store, Uuid? uuid})
-      : _store = store,
-        _uuid = uuid ?? const Uuid();
+  NotesRepository({required this._store, Uuid? uuid})
+      : _uuid = uuid ?? const Uuid();
 
   final VaultStore _store;
   final Uuid _uuid;
