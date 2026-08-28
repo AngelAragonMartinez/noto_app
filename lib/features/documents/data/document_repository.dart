@@ -316,7 +316,13 @@ class DocumentRepository {
     return out.path;
   }
 
-  Future<void> _openWithSystem(String path) async {
+  /// Hands [pathOrUrl] to the desktop environment's default handler.
+  ///
+  /// Shared with the About dialog so link opening does not drift per platform.
+  static Future<void> openWithSystem(String pathOrUrl) =>
+      _openWithSystem(pathOrUrl);
+
+  static Future<void> _openWithSystem(String path) async {
     if (Platform.isLinux) {
       await Process.start('xdg-open', [path], mode: ProcessStartMode.detached);
     } else if (Platform.isMacOS) {
