@@ -168,8 +168,6 @@ class NotesController extends StateNotifier<NotesState> {
         state.query,
         onlyDeleted: state.showTrash,
       );
-      final hasGuide =
-          notes.any((n) => legacyTitles.contains(n.title.trim()));
       var markerDone = false;
       if (await marker.exists()) {
         try {

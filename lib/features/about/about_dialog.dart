@@ -80,7 +80,7 @@ class _NotoAboutDialog extends ConsumerWidget {
                   fontSize: 12,
                   height: 1.35,
                   letterSpacing: -0.1,
-                  color: colors.onSurfaceVariant.withOpacity(0.92),
+                  color: colors.onSurfaceVariant.withValues(alpha: 0.92),
                 ),
               ),
               if (kProjectRepositoryUrl.trim().isNotEmpty) ...[

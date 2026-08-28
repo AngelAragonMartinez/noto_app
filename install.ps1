@@ -151,6 +151,14 @@ try {
     & flutter pub get
     if ($LASTEXITCODE -ne 0) { throw 'flutter pub get failed' }
 
+    Write-Step 'Patching pub cache'
+    # quill_native_bridge_windows 0.0.2 calls GlobalAlloc(GMEM_MOVEABLE, ...),
+    # a constant win32 >= 5.0 removed, and flutter_quill <= 11.5.1 does not
+    # implement TextInputClient.onFocusReceived, required by Flutter >= 3.44.
+    # Without these patches the release build fails to compile.
+    & dart run tool/patch_pub_cache.dart
+    if ($LASTEXITCODE -ne 0) { throw 'patching pub cache failed' }
+
     Write-Step 'Building Noto for Windows (release)'
     & flutter build windows --release
     if ($LASTEXITCODE -ne 0) {
