@@ -40,9 +40,8 @@ enum NoteExportFormat {
 class NoteExportRepository {
   NoteExportRepository({
     VaultPaths? paths,
-    DocumentRepository? documents,
-  })  : _paths = paths ?? const VaultPaths(),
-        _documents = documents;
+    this._documents,
+  }) : _paths = paths ?? const VaultPaths();
 
   final VaultPaths _paths;
   final DocumentRepository? _documents;

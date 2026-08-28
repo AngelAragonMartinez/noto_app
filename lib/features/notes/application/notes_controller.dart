@@ -50,17 +50,12 @@ final notesControllerProvider =
 
 class NotesController extends StateNotifier<NotesState> {
   NotesController({
-    required Ref ref,
-    required NotesRepository notesRepository,
-    required DocumentRepository documentRepository,
-    required NoteExportRepository exportRepository,
-    required RecentNoteImportsStore recentImports,
-  })  : _ref = ref,
-        _notesRepository = notesRepository,
-        _documentRepository = documentRepository,
-        _exportRepository = exportRepository,
-        _recentImports = recentImports,
-        super(const NotesState(isLoading: true));
+    required this._ref,
+    required this._notesRepository,
+    required this._documentRepository,
+    required this._exportRepository,
+    required this._recentImports,
+  }) : super(const NotesState(isLoading: true));
 
   final Ref _ref;
   final NotesRepository _notesRepository;
