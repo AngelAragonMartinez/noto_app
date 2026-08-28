@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -261,6 +262,10 @@ class DocumentRepository {
     } catch (_) {}
   }
 
+  static const _allowedImageExtensions = [
+    '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', //
+  ];
+
   Future<String?> pickAndStoreInlineImage({String? imagesLabel}) async {
     final file = await openFile(
       acceptedTypeGroups: [
@@ -273,25 +278,18 @@ class DocumentRepository {
     if (file == null) {
       return null;
     }
-    final bytes = await file.readAsBytes();
-    final id = _uuid.v4();
-    var ext = p.extension(file.name).toLowerCase();
-    const allowed = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp'];
-    if (!allowed.contains(ext)) {
-      ext = '.png';
-    }
-    final dir = Directory(
-      p.join((await _paths.appDirectory()).path, 'inline_images'),
+    return storeInlineImageBytes(
+      await file.readAsBytes(),
+      fileExtension: p.extension(file.name),
     );
-    if (!dir.existsSync()) {
-      dir.createSync(recursive: true);
-    }
-    final out = File(p.join(dir.path, '$id$ext'));
-    await out.writeAsBytes(bytes, flush: true);
-    return out.path;
   }
 
-  /// Stores pasted image bytes under app data. Returns absolute path.
+  /// Stores an image embedded in a note body, encrypted with the document key.
+  ///
+  /// Returns the absolute path the note body references. The file keeps its
+  /// image extension even though its contents are an [EncryptedPayload]
+  /// envelope, so note bodies written before images were encrypted keep
+  /// resolving — [readInlineImage] detects which format it is reading.
   Future<String> storeInlineImageBytes(
     Uint8List bytes, {
     String fileExtension = '.png',
@@ -300,20 +298,62 @@ class DocumentRepository {
     if (!ext.startsWith('.')) {
       ext = '.$ext';
     }
-    const allowed = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp'];
-    if (!allowed.contains(ext)) {
+    if (!_allowedImageExtensions.contains(ext)) {
       ext = '.png';
     }
-    final id = _uuid.v4();
     final dir = Directory(
       p.join((await _paths.appDirectory()).path, 'inline_images'),
     );
     if (!dir.existsSync()) {
       dir.createSync(recursive: true);
     }
-    final out = File(p.join(dir.path, '$id$ext'));
-    await out.writeAsBytes(bytes, flush: true);
+    final out = File(p.join(dir.path, '${_uuid.v4()}$ext'));
+    await _writeEncryptedImage(out, bytes);
     return out.path;
+  }
+
+  Future<void> _writeEncryptedImage(File file, List<int> bytes) async {
+    final payload = await _codec.encrypt(
+      bytes,
+      await _keyStore.readOrCreateDocumentKey(),
+    );
+    await file.writeAsString(jsonEncode(payload.toJson()), flush: true);
+  }
+
+  /// Reads an inline image, whichever format it is stored in.
+  ///
+  /// Images written before they were encrypted are still readable, and are
+  /// re-encrypted in place on first read so a vault upgrades itself as its
+  /// notes are opened. That migration is best effort: a failure to rewrite
+  /// leaves the image working and simply retries next time.
+  Future<Uint8List> readInlineImage(String pathOrUri) async {
+    final file = File(_fileUriToPath(pathOrUri));
+    final raw = await file.readAsBytes();
+
+    if (!_looksEncrypted(raw)) {
+      unawaited(_migrateLegacyImage(file, raw));
+      return raw;
+    }
+
+    final payload = EncryptedPayload.fromJson(
+      Map<String, Object?>.from(jsonDecode(utf8.decode(raw)) as Map),
+    );
+    return _codec.decrypt(
+      payload,
+      await _keyStore.readOrCreateDocumentKey(),
+    );
+  }
+
+  /// An [EncryptedPayload] is JSON, so it opens with `{`. No image format this
+  /// app accepts starts with that byte — PNG, JPEG, GIF, BMP and WebP all
+  /// begin with their own magic numbers — so one byte tells the two apart.
+  static bool _looksEncrypted(Uint8List raw) =>
+      raw.isNotEmpty && raw.first == 0x7B;
+
+  Future<void> _migrateLegacyImage(File file, Uint8List plaintext) async {
+    try {
+      await _writeEncryptedImage(file, plaintext);
+    } catch (_) {}
   }
 
   /// Hands [pathOrUrl] to the desktop environment's default handler.

@@ -1482,8 +1482,11 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
                           expands: true,
                           scrollable: true,
                           customStyles: _buildEditorStyles(context),
-                          embedBuilders: const [
-                            LocalFileImageEmbedBuilder(),
+                          embedBuilders: [
+                            LocalFileImageEmbedBuilder(
+                              documents:
+                                  ref.read(documentRepositoryProvider),
+                            ),
                           ],
                         ),
                       ),
