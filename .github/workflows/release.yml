@@ -6,6 +6,13 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  # Also run when the packaging itself changes, so a broken installer script
+  # is caught in review rather than at the moment someone cuts a release.
+  # The publish job stays gated on a tag, so these runs only build artifacts.
+  pull_request:
+    paths:
+      - ".github/workflows/release.yml"
+      - "installer/**"
   workflow_dispatch:
 
 permissions:
