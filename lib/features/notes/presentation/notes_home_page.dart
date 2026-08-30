@@ -1694,8 +1694,8 @@ class _QuillToolbar extends ConsumerWidget {
                 multiRowsDisplay: false,
                 showUndo: false,
                 showRedo: false,
-                showFontFamily: false,
-                showFontSize: false,
+                showFontFamily: true,
+                showFontSize: true,
                 showLineHeightButton: true,
                 showSubscript: false,
                 showSuperscript: false,
@@ -1711,6 +1711,9 @@ class _QuillToolbar extends ConsumerWidget {
                 // ignore: experimental_member_use
                 showClipboardPaste: false,
                 buttonOptions: QuillSimpleToolbarButtonOptions(
+                  fontFamily: QuillToolbarFontFamilyButtonOptions(
+                    items: _editorFontFamilies,
+                  ),
                   base: QuillToolbarBaseButtonOptions(
                     iconTheme: QuillIconTheme(
                       iconButtonSelectedData: IconButtonData(
@@ -2327,3 +2330,26 @@ class _AppLockToggleState extends ConsumerState<_AppLockToggle> {
     );
   }
 }
+
+/// Font families offered in the editor, mapped label -> CSS/Quill value.
+///
+/// flutter_quill's default list is Google Fonts names, which a desktop app
+/// does not ship — every entry would silently fall back to the same face. This
+/// list leads with the three generic families, which always resolve, and then
+/// names widely installed faces. Linux systems without the Microsoft fonts
+/// usually alias them through fontconfig (Arial to Liberation Sans, and so on);
+/// where they do not, the generic fallback applies.
+const Map<String, String> _editorFontFamilies = {
+  'Default': 'Clear',
+  'Sans Serif': 'sans-serif',
+  'Serif': 'serif',
+  'Monospace': 'monospace',
+  'Arial': 'Arial',
+  'Calibri': 'Calibri',
+  'Cambria': 'Cambria',
+  'Courier New': 'Courier New',
+  'Georgia': 'Georgia',
+  'Times New Roman': 'Times New Roman',
+  'Trebuchet MS': 'Trebuchet MS',
+  'Verdana': 'Verdana',
+};
