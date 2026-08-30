@@ -1,5 +1,39 @@
 # Changelog
 
+## 1.1.2
+
+### Fixed: copying in the note body wiped the clipboard
+
+Copy and paste worked in the title field but not in the note body. The title is
+an ordinary text field; the body goes through `quill_native_bridge_windows`,
+whose `copyHtmlToClipboard` calls `EmptyClipboard()` and then writes only HTML.
+Flutter had already put the plain text there, so the wipe removed it and
+nothing readable was left. Every failure in that code is reported with
+`assert`, which release builds strip, so it happened silently.
+
+Noto now uses Flutter's own clipboard for copying, which writes plain text and
+empties nothing. Pasting formatted content into Noto still works.
+
+**Copying out of Noto no longer carries formatting into other applications** —
+it pastes as plain text. Copying working at all is worth more.
+
+### Fixed: exported files could be saved unusable
+
+The extension was appended only when the file name had none. A name containing
+a dot — "Reunión 20.08", "nota v1.2" — looked like it already had one, so the
+file was written without a usable extension and other devices reported it as
+damaged. Choosing PDF with a name ending in `.txt` left the mismatch in place,
+putting PDF bytes in a file everything reads as text.
+
+Saved files now always end with the extension matching their contents.
+
+### Fixed: colours and highlights vanished on export
+
+RTF — the format Word opens — lost both, declaring a colour table containing
+only black. PDF applied text colour but dropped highlighting. Markdown dropped
+highlighting. All three now carry them.
+
+
 ## 1.1.1
 
 ### Fixed: the lock button did nothing on devices without Windows Hello
