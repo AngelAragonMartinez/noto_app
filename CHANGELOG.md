@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.1.1
+
+### Fixed: the lock button did nothing on devices without Windows Hello
+
+Where no Windows Hello credential exists the startup lock cannot engage. The
+button rendered disabled with the reason hidden in a tooltip, so from the
+outside it was indistinguishable from a broken control: it showed the lock
+already off, and clicking did nothing at all.
+
+It now stays pressable and explains itself — naming the cause, giving the path
+to fix it in Windows Settings, and stating that notes are encrypted either way,
+so an unavailable lock is not mistaken for unprotected notes.
+
+### Documentation
+
+The README and SECURITY.md now list every path Noto uses: where the app
+installs on each of the four install routes, what each file inside the notes
+folder holds and which of them are encrypted, and the uninstaller's full path
+for when Settings does not list the app.
+
+
 ## 1.1.0
 
 ### The startup lock is now actually optional
