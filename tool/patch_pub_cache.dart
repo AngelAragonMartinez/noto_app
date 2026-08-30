@@ -24,6 +24,7 @@ void main(List<String> args) {
   var applied = 0;
   applied += _patchFlutterQuillFocus(cache) ? 1 : 0;
   applied += _patchLocalAuthWindowsAwait(cache) ? 1 : 0;
+  applied += _patchQuillWindowsClipboard(cache) ? 1 : 0;
 
   stdout.writeln(
     applied == 0
@@ -78,6 +79,49 @@ bool _patchLocalAuthWindowsAwait(Directory cache) {
         patched = true;
       }
     }
+  }
+  return patched;
+}
+
+/// quill_native_bridge_windows destroys the clipboard when copying.
+///
+/// `copyHtmlToClipboard` calls `EmptyClipboard()` and then writes only
+/// `CF_HTML`. Flutter has already placed the plain text via `Clipboard.setData`
+/// at that point, so the wipe removes it and nothing but HTML is left. Copying
+/// from the note body therefore yields a clipboard that plain-text consumers —
+/// the title field, other applications — read as empty.
+///
+/// Its error handling is `assert(false, ...)` throughout, which release builds
+/// strip, so every failure is silent for the people affected.
+///
+/// Dropping the feature from `isSupported` makes flutter_quill fall back to
+/// Flutter's own clipboard, which writes plain text and never empties anything.
+/// The cost is that copying out of Noto no longer carries formatting to other
+/// applications; the gain is that copying works at all. Reading HTML from the
+/// clipboard is left enabled — it only reads, so pasting formatted content in
+/// still works.
+///
+/// The package describes itself as "Highly Experimental" and carries a TODO to
+/// test clipboard behaviour against other Windows applications.
+bool _patchQuillWindowsClipboard(Directory cache) {
+  var patched = false;
+  for (final dir in _packageDirs(cache, 'quill_native_bridge_windows')) {
+    final sep = Platform.pathSeparator;
+    final file = File(
+      '${dir.path}${sep}lib${sep}quill_native_bridge_windows.dart',
+    );
+    if (!file.existsSync()) continue;
+
+    final source = file.readAsStringSync();
+    final entry = RegExp(
+      r'^[ \t]*QuillNativeBridgeFeature\.copyHtmlToClipboard,[ \t]*\r?\n',
+      multiLine: true,
+    );
+    if (!entry.hasMatch(source)) continue;
+
+    file.writeAsStringSync(source.replaceAll(entry, ''));
+    stdout.writeln('   disabled copyHtmlToClipboard in ${file.path}');
+    patched = true;
   }
   return patched;
 }

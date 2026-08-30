@@ -79,11 +79,9 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'flutter pub get failed' }
 
     Write-Step 'Patching pub cache'
-    # Two upstream build blockers, fixed rather than suppressed:
-    # local_auth_windows passes MSVC's obsolete /await switch, which forces
-    # <experimental/coroutine> and fails on current toolsets (STL1011); and
-    # flutter_quill <= 11.5.1 lacks TextInputClient.onFocusReceived,
-    # required by Flutter >= 3.44.
+    # Upstream defects patched rather than worked around: local_auth_windows's
+    # obsolete /await switch, flutter_quill's missing onFocusReceived, and
+    # quill_native_bridge_windows emptying the clipboard when copying.
     & dart run tool/patch_pub_cache.dart
     if ($LASTEXITCODE -ne 0) { throw 'patching pub cache failed' }
 
