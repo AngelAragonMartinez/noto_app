@@ -107,6 +107,30 @@ class NotesController extends StateNotifier<NotesState> {
     });
   }
 
+  /// Shows [message] in the info bar until something clears it.
+  ///
+  /// Unlike [_flashInfo] there is no timer: a path is there to be read and
+  /// copied down, which is slower than the couple of seconds a save
+  /// confirmation needs.
+  void showPinnedInfo(String message) {
+    _infoTimer?.cancel();
+    _infoTimer = null;
+    state = state.copyWith(info: message);
+  }
+
+  /// Where the open note lives, ready to show to the user.
+  ///
+  /// The file it was last exported to, when there is one — that is the copy
+  /// people go looking for. Otherwise the folder holding the vault, since a
+  /// note that has never been exported has no file of its own.
+  Future<String> currentNoteLocation() async {
+    final exported = state.selectedNote?.lastExportPath;
+    if (exported != null && exported.trim().isNotEmpty) {
+      return exported;
+    }
+    return _exportRepository.storagePath();
+  }
+
   Future<void> load() async {
     await _guard(() async {
       final notes = await _notesRepository.search(

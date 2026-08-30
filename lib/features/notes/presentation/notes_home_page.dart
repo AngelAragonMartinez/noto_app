@@ -254,6 +254,7 @@ class NotesHomePage extends ConsumerWidget {
             icon: const Icon(Icons.translate_rounded),
           ),
           const _AppLockToggle(),
+          const _NoteLocationButton(),
           IconButton(
             tooltip: s.about,
             onPressed: () => showNotoAboutDialog(context, ref),
@@ -2360,6 +2361,71 @@ class _AppLockToggleState extends ConsumerState<_AppLockToggle> {
             child: Text(s.aboutClose),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Shows where the open note lives, in the same bar that confirms a save.
+///
+/// Pressing again clears it. The message is pinned rather than timed: a path
+/// is there to be read and written down, which takes longer than the couple of
+/// seconds a save confirmation needs.
+class _NoteLocationButton extends ConsumerStatefulWidget {
+  const _NoteLocationButton();
+
+  @override
+  ConsumerState<_NoteLocationButton> createState() =>
+      _NoteLocationButtonState();
+}
+
+class _NoteLocationButtonState extends ConsumerState<_NoteLocationButton> {
+  bool _showing = false;
+
+  Future<void> _toggle() async {
+    final controller = ref.read(notesControllerProvider.notifier);
+
+    if (_showing) {
+      controller.clearInfo();
+      setState(() => _showing = false);
+      return;
+    }
+
+    final s = ref.read(appStringsProvider);
+    final note = ref.read(notesControllerProvider).selectedNote;
+    final exported = note?.lastExportPath;
+    final hasFile = exported != null && exported.trim().isNotEmpty;
+
+    final location = await controller.currentNoteLocation();
+    if (!mounted) return;
+
+    controller.showPinnedInfo(
+      '${hasFile ? s.noteLocationFileLabel : s.noteLocationVaultLabel} '
+      '$location',
+    );
+    setState(() => _showing = true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = ref.watch(appStringsProvider);
+
+    // Anything else clearing the bar — a save, switching notes — leaves this
+    // button showing "hide" for a message that is gone. Follow the bar.
+    final info = ref.watch(notesControllerProvider).info;
+    if (_showing && info == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _showing) setState(() => _showing = false);
+      });
+    }
+
+    return IconButton(
+      tooltip: _showing ? s.noteLocationHide : s.noteLocationTooltip,
+      onPressed: _toggle,
+      icon: Icon(
+        _showing
+            ? Icons.folder_open_rounded
+            : Icons.folder_outlined,
       ),
     );
   }
