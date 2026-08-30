@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.1.3
+
+### Fixed: copy and paste in the note body
+
+Paste in the body did nothing — mouse or keyboard — while it worked in the
+title field and Ctrl+Z worked everywhere. Undo working showed the editor had
+focus and received input, placing the fault in the clipboard path alone.
+
+flutter_quill tries the Windows native bridge first, for HTML and then
+Markdown, before falling back to plain text. That bridge is the only
+non-default piece in the path, and the title field, which uses Flutter's own
+clipboard, never broke. Noto now skips the bridge, so the body pastes the same
+way the title does.
+
+**Content pasted from other applications arrives as plain text** rather than
+keeping its formatting. Paste working at all is worth more.
+
+### Noto starts in the language you chose
+
+The installer asks for English or Spanish and the app ignored it, always
+opening in English. The installer now seeds that choice, so the welcome screen
+and the built-in guide note appear in the language you picked.
+
+Without an installer — the portable archive, or Linux — Noto follows the
+operating system instead, falling back to English for languages it has no
+translation for. Changing the language inside Noto overrides both and survives
+upgrades.
+
+
 ## 1.1.2
 
 ### Fixed: copying in the note body wiped the clipboard
