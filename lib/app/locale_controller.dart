@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/legacy.dart';
@@ -12,15 +13,33 @@ final localeControllerProvider =
 });
 
 class LocaleController extends StateNotifier<Locale> {
-  LocaleController({VaultPaths? paths})
+  LocaleController({VaultPaths? paths, Locale? systemLocale})
       : _paths = paths ?? const VaultPaths(),
+        _systemLocale = systemLocale,
         super(const Locale('en'));
 
   final VaultPaths _paths;
+  final Locale? _systemLocale;
+
+  /// The languages Noto has translations for.
+  static const supported = {'en', 'es'};
 
   Future<File> _localeFile() async {
     final dir = await _paths.appDirectory();
     return File(p.join(dir.path, 'locale'));
+  }
+
+  /// Language to start in when the user has never chosen one.
+  ///
+  /// Follows the operating system. Noto previously always opened in English,
+  /// so a Spanish system got an English welcome screen and had to reach for the
+  /// language button before reading anything.
+  @visibleForTesting
+  Locale initialLocale() {
+    final code = (_systemLocale ?? ui.PlatformDispatcher.instance.locale)
+        .languageCode
+        .toLowerCase();
+    return supported.contains(code) ? Locale(code) : const Locale('en');
   }
 
   Future<void> load() async {
@@ -28,13 +47,14 @@ class LocaleController extends StateNotifier<Locale> {
       final file = await _localeFile();
       if (await file.exists()) {
         final code = (await file.readAsString()).trim().toLowerCase();
-        if (code == 'es') {
-          state = const Locale('es');
+        if (supported.contains(code)) {
+          state = Locale(code);
           return;
         }
       }
     } catch (_) {}
-    state = const Locale('en');
+    // No stored choice: follow the system rather than assuming English.
+    state = initialLocale();
   }
 
   Future<void> setLocale(Locale locale) async {

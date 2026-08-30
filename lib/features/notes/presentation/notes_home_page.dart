@@ -1043,6 +1043,18 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
     return QuillControllerConfig(
       // ignore: experimental_member_use
       clipboardConfig: QuillClipboardConfig(
+        // Off deliberately. With it on, pasting first goes through
+        // quill_native_bridge_windows to look for HTML and Markdown on the
+        // clipboard, and that path is where paste stops working in the note
+        // body — while the title field, which uses Flutter's own clipboard,
+        // keeps working. Turning it off routes the body down the same path as
+        // the title.
+        //
+        // The cost is that content pasted from other applications arrives as
+        // plain text rather than keeping its formatting. Paste working at all
+        // is worth more than paste keeping formatting.
+        // ignore: experimental_member_use
+        enableExternalRichPaste: false,
         onImagePaste: (bytes) async {
           return ref.read(documentRepositoryProvider).storeInlineImageBytes(bytes);
         },
