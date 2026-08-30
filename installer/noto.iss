@@ -75,3 +75,40 @@ Filename: "{app}\{#AppExeName}"; \
 ; No [UninstallDelete] on purpose. Uninstalling removes only what was
 ; installed; notes in %APPDATA%\Noto contributors\Noto\notes_app are the
 ; user's data and must survive.
+
+[Code]
+// Starts Noto in the language chosen in this wizard.
+//
+// Written as the same `locale` file the app already reads, so no code in the
+// app has to know the installer exists.
+//
+// Only when that file is absent. On an upgrade the user may have switched
+// language inside Noto since installing, and resetting that to whatever the
+// wizard happens to be showing would undo their choice.
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  DataDir: string;
+  LocaleFile: string;
+  Code: string;
+begin
+  if CurStep <> ssPostInstall then
+    Exit;
+
+  DataDir := ExpandConstant('{userappdata}\Noto contributors\Noto\notes_app');
+  LocaleFile := DataDir + '\locale';
+
+  if FileExists(LocaleFile) then
+    Exit;
+
+  if ActiveLanguage = 'spanish' then
+    Code := 'es'
+  else
+    Code := 'en';
+
+  if not DirExists(DataDir) then
+    if not ForceDirectories(DataDir) then
+      Exit;
+
+  // Best effort: failing to seed the language must never fail the install.
+  SaveStringToFile(LocaleFile, Code, False);
+end;
