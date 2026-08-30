@@ -1,5 +1,43 @@
 # Changelog
 
+## 1.1.4
+
+### Tags come back when you reopen a note
+
+Exporting to `.txt` or `.md` writes tags as a line of text, since neither
+format has anywhere else to keep them. Reopening such a file left that line
+sitting in the body while the tags field came back empty. Import now lifts it
+back out.
+
+Both labels are recognised in both languages Noto exports in, so a note saved
+in Spanish reopens with its tags whatever language is active now. Only a line
+of its own counts — a sentence that happens to begin "Tags:" stays in the body.
+
+### A button showing where the note is
+
+A folder button beside the lock and About buttons writes the note's location
+into the same bar that confirms a save; pressing it again clears it.
+
+It shows the file the note was last exported to when there is one, and
+otherwise the folder holding the vault, since a note never exported has no file
+of its own. The message stays until dismissed rather than timing out — a path
+is there to be read and written down.
+
+### PDFs no longer list attachments
+
+Exports ended with a list naming each attachment and its path into a sibling
+folder. A PDF is the format people forward on its own, so those paths point at
+a folder the reader does not have. Plain text, Markdown and HTML keep the list,
+since those are read next to the exported folder.
+
+### More room to write when the side panel is hidden
+
+Hiding the panel is a request for space, but the writing column stayed narrow,
+reading as a strip adrift under a full-width toolbar. It now widens. Still
+capped rather than filling the window: a line spanning a large monitor is
+tiring to read.
+
+
 ## 1.1.3
 
 ### Fixed: copy and paste in the note body
