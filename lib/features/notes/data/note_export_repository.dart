@@ -968,8 +968,18 @@ class NoteExportRepository {
         .trim();
   }
 
+  /// Guarantees the file name ends with the extension matching its contents.
+  ///
+  /// This used to append only when there was no extension at all, which broke
+  /// two ordinary cases. A name containing a dot — "Reunión 20.08", "nota v1.2"
+  /// — looked like it already had one, so the file was written with no usable
+  /// extension and other devices reported it as damaged. And choosing PDF while
+  /// the name ended in `.txt` left the mismatch in place, putting PDF bytes in
+  /// a file everything would try to read as text.
   String _ensureExtension(String path, String extension) {
-    return p.extension(path).isEmpty ? '$path.$extension' : path;
+    final current = p.extension(path).replaceFirst('.', '').toLowerCase();
+    if (current == extension.toLowerCase()) return path;
+    return '$path.$extension';
   }
 
   String _escapeHtml(String value) {
