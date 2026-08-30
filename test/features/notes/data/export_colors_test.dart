@@ -69,9 +69,11 @@ void main() {
       // Red and yellow must appear in the colour table...
       expect(rtf, contains(r'\red255\green0\blue0'));
       expect(rtf, contains(r'\red255\green255\blue0'));
-      // ...and be referenced, or the table is decoration.
-      expect(rtf, matches(RegExp(r'\cf[2-9]')));
-      expect(rtf, matches(RegExp(r'\highlight[2-9]')));
+      // ...and be referenced, or the table is just decoration. `contains`
+      // rather than `matches`: matches requires the whole string to be the
+      // pattern, which is never true of a document.
+      expect(rtf.contains(RegExp(r'\\cf[2-9]')), isTrue, reason: rtf);
+      expect(rtf.contains(RegExp(r'\\highlight[2-9]')), isTrue, reason: rtf);
     });
 
     test('Markdown emits colour and background styles', () async {
