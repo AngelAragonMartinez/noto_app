@@ -397,9 +397,21 @@ class NoteExportRepository {
           if (attrs['underline'] == true) segment = '<u>$segment</u>';
           if (attrs['italic'] == true) segment = '*$segment*';
           if (attrs['bold'] == true) segment = '**$segment**';
+          // Markdown has no colour syntax, but every renderer worth using
+          // passes inline HTML through — the same trick <u> above relies on.
+          final styles = <String>[];
           final color = attrs['color'];
           if (color is String) {
-            segment = '<span style="color:$color">$segment</span>';
+            final hex = normaliseColor(color);
+            if (hex != null) styles.add('color:$hex');
+          }
+          final background = attrs['background'];
+          if (background is String) {
+            final hex = normaliseColor(background);
+            if (hex != null) styles.add('background-color:$hex');
+          }
+          if (styles.isNotEmpty) {
+            segment = '<span style="${styles.join(';')}">$segment</span>';
           }
           final link = attrs['link'];
           if (link is String && link.isNotEmpty) {
@@ -436,10 +448,21 @@ class NoteExportRepository {
     AppStrings strings,
   ) {
     final ops = _deltaOps(note.body);
+    // RTF refers to colours by index into a table declared up front, so every
+    // colour the note uses has to be collected before writing any text. Index 0
+    // is "auto"; black is 1, and the document's own colours follow.
+    final colorIndex = _rtfColorTable(ops);
     final buf = StringBuffer();
     buf.write(r'{\rtf1\ansi\ansicpg1252\deff0\nouicompat'
         r'{\fonttbl{\f0\fnil\fcharset0 Helvetica;}{\f1\fnil\fcharset0 Courier New;}}');
-    buf.write(r'{\colortbl ;\red0\green0\blue0;}');
+    buf.write(r'{\colortbl ;\red0\green0\blue0;');
+    for (final hex in colorIndex.keys) {
+      final r = int.parse(hex.substring(1, 3), radix: 16);
+      final g = int.parse(hex.substring(3, 5), radix: 16);
+      final b = int.parse(hex.substring(5, 7), radix: 16);
+      buf.write('\\red$r\\green$g\\blue$b;');
+    }
+    buf.write('}');
     buf.write(r'\f0\fs22 ');
     if (note.title.isNotEmpty) {
       buf.write(r'\b\fs32 ');
@@ -485,6 +508,23 @@ class NoteExportRepository {
             openTags += r'\strike ';
             closeTags = r'\strike0 ' + closeTags;
           }
+          final color = attrs['color'];
+          if (color is String) {
+            final index = colorIndex[normaliseColor(color)];
+            if (index != null) {
+              openTags += '\\cf$index ';
+              closeTags = '\\cf0 $closeTags';
+            }
+          }
+          final background = attrs['background'];
+          if (background is String) {
+            final index = colorIndex[normaliseColor(background)];
+            if (index != null) {
+              // \highlight is what Word honours; \cb is widely ignored.
+              openTags += '\\highlight$index ';
+              closeTags = '\\highlight0 $closeTags';
+            }
+          }
           final link = attrs['link'];
           if (link is String && link.isNotEmpty) {
             final url = _rtfEscape(link);
@@ -507,6 +547,25 @@ class NoteExportRepository {
     }
     buf.write('}');
     return buf.toString();
+  }
+
+  /// Every colour the note uses, mapped to its RTF colour-table index.
+  ///
+  /// Indices start at 2: the table always declares "auto" at 0 and black at 1.
+  Map<String, int> _rtfColorTable(List<Map<String, dynamic>> ops) {
+    final table = <String, int>{};
+    for (final op in ops) {
+      final attrs = op['attributes'];
+      if (attrs is! Map) continue;
+      for (final key in const ['color', 'background']) {
+        final raw = attrs[key];
+        if (raw is! String) continue;
+        final hex = normaliseColor(raw);
+        if (hex == null || table.containsKey(hex)) continue;
+        table[hex] = table.length + 2;
+      }
+    }
+    return table;
   }
 
   String _rtfEscape(String value) {
@@ -750,17 +809,56 @@ class NoteExportRepository {
         style = style.copyWith(color: parsed);
       }
     }
+    // Highlight. TextStyle.background takes a BoxDecoration, not a colour,
+    // which is why this was missed: text colour worked while highlighting
+    // silently did nothing in exported PDFs.
+    final background = attrs['background'];
+    if (background is String) {
+      final parsed = _parseHexColor(background);
+      if (parsed != null) {
+        style = style.copyWith(background: pw.BoxDecoration(color: parsed));
+      }
+    }
     return style;
   }
 
-  PdfColor? _parseHexColor(String value) {
-    var v = value.trim();
+  /// Normalises a colour from a Quill attribute to `#rrggbb`.
+  ///
+  /// The editor writes hex, but not always the same shape, and a pasted
+  /// document can carry `rgb()` or `rgba()`. Returning one canonical form keeps
+  /// every exporter from having to parse colours itself.
+  static String? normaliseColor(String raw) {
+    var v = raw.trim().toLowerCase();
+    if (v.isEmpty || v == 'transparent') return null;
+
+    final rgb = RegExp(r'^rgba?\(([^)]*)\)$').firstMatch(v);
+    if (rgb != null) {
+      final parts = rgb.group(1)!.split(',');
+      if (parts.length < 3) return null;
+      final channels = <int>[];
+      for (var i = 0; i < 3; i++) {
+        final n = int.tryParse(parts[i].trim());
+        if (n == null || n < 0 || n > 255) return null;
+        channels.add(n);
+      }
+      return '#${channels.map((c) => c.toRadixString(16).padLeft(2, '0')).join()}';
+    }
+
     if (v.startsWith('#')) v = v.substring(1);
-    if (v.length == 6) v = 'FF$v';
-    if (v.length != 8) return null;
+    if (!RegExp(r'^[0-9a-f]+$').hasMatch(v)) return null;
+    // #rgb shorthand doubles each digit; #aarrggbb drops the alpha, which no
+    // export format here can represent anyway.
+    if (v.length == 3) v = v.split('').map((c) => '$c$c').join();
+    if (v.length == 8) v = v.substring(2);
+    if (v.length != 6) return null;
+    return '#$v';
+  }
+
+  PdfColor? _parseHexColor(String value) {
+    final normalised = normaliseColor(value);
+    if (normalised == null) return null;
     try {
-      final n = int.parse(v, radix: 16);
-      return PdfColor.fromInt(n);
+      return PdfColor.fromInt(int.parse('FF${normalised.substring(1)}', radix: 16));
     } catch (_) {
       return null;
     }
@@ -870,8 +968,18 @@ class NoteExportRepository {
         .trim();
   }
 
+  /// Guarantees the file name ends with the extension matching its contents.
+  ///
+  /// This used to append only when there was no extension at all, which broke
+  /// two ordinary cases. A name containing a dot — "Reunión 20.08", "nota v1.2"
+  /// — looked like it already had one, so the file was written with no usable
+  /// extension and other devices reported it as damaged. And choosing PDF while
+  /// the name ended in `.txt` left the mismatch in place, putting PDF bytes in
+  /// a file everything would try to read as text.
   String _ensureExtension(String path, String extension) {
-    return p.extension(path).isEmpty ? '$path.$extension' : path;
+    final current = p.extension(path).replaceFirst('.', '').toLowerCase();
+    if (current == extension.toLowerCase()) return path;
+    return '$path.$extension';
   }
 
   String _escapeHtml(String value) {
