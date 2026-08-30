@@ -1419,7 +1419,15 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
         Expanded(
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 820),
+              // Wider once the side panel is hidden. Hiding the panel is a
+              // request for more room to write, so the text takes some of it
+              // rather than leaving a narrow column adrift in the middle of a
+              // wide window. Still capped: a line running the full width of a
+              // large monitor is tiring to read, which is why the limit exists
+              // at all.
+              constraints: BoxConstraints(
+                maxWidth: ref.watch(_sidebarVisibleProvider) ? 820 : 1100,
+              ),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(28, 22, 28, 28),
                 child: Column(
