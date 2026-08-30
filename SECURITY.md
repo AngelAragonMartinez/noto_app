@@ -13,6 +13,20 @@ cryptographically secure random source and live in the OS keyring via
 Exports you save are plaintext files by design. Treat them like any sensitive
 document.
 
+## Where the data is
+
+| Platform | Notes folder |
+|---|---|
+| Windows | `%APPDATA%\Noto contributors\Noto\notes_app\` |
+| Linux | `~/.local/share/noto/notes_app/` |
+
+`vault.enc`, `attachments/` and `inline_images/` inside it are
+encrypted. `exports/` is not — it is where the Save-as dialog opens by
+default, and exports are plaintext by design.
+
+Uninstalling Noto does not touch this folder. Removing your notes is a
+deliberate, manual, irreversible step.
+
 ## What is not protected
 
 - **Opening an attachment** writes a decrypted copy to the system temp

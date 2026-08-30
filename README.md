@@ -148,15 +148,59 @@ Noto makes **no network requests of any kind**. There is no telemetry, no
 analytics, no update check, and no account. The application has never had a
 line of networking code in it.
 
-### Where your notes live
+### Where everything lives
+
+Noto uses two locations, and they are deliberately separate: **uninstalling
+removes the first and never touches the second.**
+
+**The application**
+
+| Platform | Location |
+|---|---|
+| Windows (installer) | `%LOCALAPPDATA%\Programs\Noto\` |
+| Windows (portable) | wherever you unzipped it |
+| Linux (`install.sh`) | `/opt/noto/`, launched via `/usr/bin/noto` |
+| Linux (tarball) | wherever you unpacked it |
+
+**Your notes**
 
 | Platform | Location |
 |---|---|
 | Windows | `%APPDATA%\Noto contributors\Noto\notes_app\` |
 | Linux | `~/.local/share/noto/notes_app/` |
 
-Uninstalling Noto leaves this folder alone. Back it up like any other
-irreplaceable data — there is no cloud copy, by design.
+Inside that folder:
+
+| Item | What it holds |
+|---|---|
+| `vault.enc` | every note — encrypted |
+| `attachments/` | files attached to notes — encrypted |
+| `inline_images/` | images placed in note bodies — encrypted |
+| `exports/` | the default folder the Save-as dialog opens in — **plaintext** |
+| `locale`, `app_lock` | your language and startup-lock preferences |
+
+Back this folder up like any other irreplaceable data. There is no cloud copy,
+by design.
+
+### Uninstalling
+
+**Windows** — Settings ▸ Apps ▸ Installed apps ▸ Noto ▸ Uninstall.
+
+If it is not listed there, run the uninstaller directly. Paste this into File
+Explorer:
+
+```
+%LOCALAPPDATA%\Programs\Noto
+```
+
+and run **`unins000.exe`**. Installed from the portable `.zip` instead? There is
+nothing to uninstall — delete the folder you unzipped.
+
+**Linux** — `sudo ./uninstall.sh` from the repository, or delete the folder you
+unpacked the tarball into.
+
+Either way your notes survive. To remove those too, delete the notes folder
+above by hand — that step is irreversible.
 
 ### What is *not* protected
 

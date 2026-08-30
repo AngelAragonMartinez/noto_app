@@ -213,6 +213,21 @@ class AppStrings {
       ? 'Bloqueo al abrir: desactivado (activar)'
       : 'Lock on startup: off (turn on)';
 
+  String get appLockUnavailableTitle =>
+      _es ? 'El bloqueo no está disponible' : 'Lock unavailable';
+
+  String get appLockUnavailableBody => _es
+      ? 'Noto usa el bloqueo del sistema, así que necesita Windows Hello '
+          'configurado (PIN, huella o cara). Actívalo en Configuración de '
+          'Windows ▸ Cuentas ▸ Opciones de inicio de sesión y vuelve a '
+          'intentarlo.\n\nTus notas siguen cifradas con o sin bloqueo: este '
+          'solo añade una comprobación al abrir la aplicación.'
+      : 'Noto uses the system lock, so it needs Windows Hello set up — a '
+          'PIN, fingerprint, or face. Turn it on in Windows Settings ▸ '
+          'Accounts ▸ Sign-in options, then try again.\n\nYour notes stay '
+          'encrypted either way: the lock only adds a check when the app '
+          'opens.';
+
   String get appLockUnavailable => _es
       ? 'Este equipo no tiene Windows Hello ni un bloqueo equivalente'
       : 'This device has no Windows Hello or equivalent lock';
