@@ -58,14 +58,19 @@ void main() {
     return result.file.readAsStringSync();
   }
 
-  test('HTML export carries the chosen font family', () async {
+  test('HTML export renders the chosen font, not just mentions it', () async {
     final html = await exportTo(NoteExportFormat.html);
 
     expect(html, contains('ARIALTEXT'));
+
+    // Naming the font is not enough. A bare `class="ql-font-Arial"` would
+    // satisfy a substring check while rendering in the default face, because
+    // the exported stylesheet does not define that class. What matters is that
+    // the document actually sets a font-family the browser will apply.
     expect(
-      html.toLowerCase(),
-      contains('arial'),
-      reason: 'the font must survive into the exported document',
+      html,
+      contains('font-family'),
+      reason: 'font not applied anywhere. Exported HTML was:\n$html',
     );
   });
 
