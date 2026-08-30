@@ -2318,11 +2318,36 @@ class _AppLockToggleState extends ConsumerState<_AppLockToggle> {
       tooltip: available
           ? (enabled ? s.appLockToggleOn : s.appLockToggleOff)
           : s.appLockUnavailable,
-      onPressed: available
-          ? () => ref.read(appLockEnabledProvider.notifier).toggle()
-          : null,
+      // Stays pressable when the lock is unavailable. A disabled button with
+      // only a tooltip reads as broken: nothing happens on click and the
+      // explanation is behind a hover most people never perform.
+      onPressed: () {
+        if (!available) {
+          _explainUnavailable();
+          return;
+        }
+        ref.read(appLockEnabledProvider.notifier).toggle();
+      },
       icon: Icon(
         enabled && available ? Icons.lock_rounded : Icons.lock_open_rounded,
+      ),
+    );
+  }
+
+  void _explainUnavailable() {
+    final s = ref.read(appStringsProvider);
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.lock_outline_rounded),
+        title: Text(s.appLockUnavailableTitle),
+        content: Text(s.appLockUnavailableBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(s.aboutClose),
+          ),
+        ],
       ),
     );
   }
