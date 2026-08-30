@@ -13,9 +13,8 @@ final localeControllerProvider =
 });
 
 class LocaleController extends StateNotifier<Locale> {
-  LocaleController({VaultPaths? paths, Locale? systemLocale})
+  LocaleController({VaultPaths? paths, this._systemLocale})
       : _paths = paths ?? const VaultPaths(),
-        _systemLocale = systemLocale,
         super(const Locale('en'));
 
   final VaultPaths _paths;
