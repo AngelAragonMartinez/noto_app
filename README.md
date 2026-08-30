@@ -179,6 +179,11 @@ Inside that folder:
 | `exports/` | the default folder the Save-as dialog opens in — **plaintext** |
 | `locale`, `app_lock` | your language and startup-lock preferences |
 
+Noto starts in the language you picked in the installer. Without that — the
+portable build, or Linux — it follows your system, falling back to English for
+languages it has no translation for. Changing the language inside Noto
+overrides both, and survives upgrades.
+
 Back this folder up like any other irreplaceable data. There is no cloud copy,
 by design.
 
