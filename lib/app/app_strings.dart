@@ -203,6 +203,20 @@ class AppStrings {
 
   String get notePreviewEmpty => _es ? 'Vacío' : 'Empty';
 
+  String get noteLocationTooltip =>
+      _es ? 'Mostrar dónde está la nota' : 'Show where the note is';
+
+  String get noteLocationHide =>
+      _es ? 'Ocultar la ruta' : 'Hide the location';
+
+  String get noteLocationVaultLabel => _es
+      ? 'Tus notas se guardan en:'
+      : 'Your notes are kept in:';
+
+  String get noteLocationFileLabel => _es
+      ? 'Última copia guardada en:'
+      : 'Last saved copy:';
+
   String get appLockUnlock => _es ? 'Desbloquear' : 'Unlock';
 
   String get appLockToggleOn => _es

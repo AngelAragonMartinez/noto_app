@@ -77,6 +77,12 @@ class NoteImportResult {
       body = _htmlToText(body);
     }
 
+    // Exports write the tags into the text, since .txt and .md have nowhere
+    // else to put them. Lift them back out so reopening a note restores them
+    // to the tags field instead of leaving "Tags: ..." sitting in the body.
+    final extracted = _extractTagsLine(body);
+    body = extracted.body;
+
     body = body.replaceAll(RegExp(r'\s+$'), '');
 
     final doc = Document();
@@ -85,8 +91,45 @@ class NoteImportResult {
     }
     return NoteImportResult(
       title: title,
+      tags: extracted.tags,
       body: jsonEncode(doc.toDelta().toJson()),
     );
+  }
+
+  /// Pulls the exported tags line out of [body].
+  ///
+  /// Plain text and Markdown exports write tags as a line of text because the
+  /// formats have nowhere else to keep them: `Tags: a, b` in .txt, and
+  /// `**Tags:** a, b` in .md, where it sits at the end rather than the top.
+  /// Both labels are matched, in both languages Noto exports in, so a note
+  /// saved in Spanish reopens with its tags whatever language is active now.
+  ///
+  /// Only the first match is taken, and only when it is a line of its own —
+  /// a sentence in the body that happens to start with "Tags:" is left alone.
+  static ({String body, List<String> tags}) _extractTagsLine(String body) {
+    final pattern = RegExp(
+      r'^[ \t]*(?:\*\*)?(?:Tags|Etiquetas)(?:\*\*)?[ \t]*:[ \t]*(?:\*\*)?[ \t]*(.+?)[ \t]*$',
+      caseSensitive: false,
+      multiLine: true,
+    );
+
+    final match = pattern.firstMatch(body);
+    if (match == null) return (body: body, tags: const <String>[]);
+
+    final tags = match
+        .group(1)!
+        .split(',')
+        .map((tag) => tag.trim())
+        .where((tag) => tag.isNotEmpty)
+        .toList();
+    if (tags.isEmpty) return (body: body, tags: const <String>[]);
+
+    final withoutLine =
+        body.replaceRange(match.start, match.end, '').replaceAll(
+              RegExp(r'\n{3,}'),
+              '\n\n',
+            );
+    return (body: withoutLine, tags: tags);
   }
 
   /// The document's `<title>`, which names a note better than its file name.

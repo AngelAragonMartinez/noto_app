@@ -620,21 +620,11 @@ class NoteExportRepository {
             ],
             pw.SizedBox(height: 16),
             ...bodyWidgets,
-            if (attachments.isNotEmpty) ...[
-              pw.SizedBox(height: 20),
-              pw.Divider(color: PdfColors.grey400),
-              pw.SizedBox(height: 6),
-              pw.Text(
-                strings.attachments,
-                style: pw.TextStyle(
-                  fontSize: 12,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              pw.SizedBox(height: 4),
-              for (final a in attachments)
-                pw.Bullet(text: '${a.originalName}  (${a.relativePath})'),
-            ],
+            // No attachment list here on purpose. A PDF is the format people
+            // send on its own, and the list names files with paths into a
+            // sibling folder the reader does not have — noise at best,
+            // misleading at worst. The text formats keep it, since those
+            // travel next to the exported folder.
           ];
         },
       ),

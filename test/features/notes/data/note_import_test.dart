@@ -5,6 +5,7 @@ import 'package:notes_app/features/notes/data/note_import.dart';
 
 void main() {
   _htmlImportTests();
+  _tagRoundTripTests();
   group('NoteImport', () {
     test('plain text becomes a single Quill body', () {
       final r = NoteImportResult.parse('hello.txt', 'hello\nworld');
@@ -141,6 +142,83 @@ void _htmlImportTests() {
       final text = bodyTextOf(result);
       expect(text.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty),
           containsAllInOrder(['Uno', 'Dos', 'Tres']));
+    });
+  });
+}
+
+void _tagRoundTripTests() {
+  group('reopening restores tags to the tags field', () {
+    String bodyTextOf(NoteImportResult r) => (jsonDecode(r.body) as List)
+        .whereType<Map>()
+        .map((op) => op['insert'])
+        .whereType<String>()
+        .join();
+
+    test('.txt written by Noto in Spanish', () {
+      final r = NoteImportResult.parse(
+        'nota.txt',
+        'Mi nota\n=======\n\nEtiquetas: trabajo, ideas\n\nCuerpo de la nota.\n',
+      );
+
+      expect(r.tags, ['trabajo', 'ideas']);
+      expect(bodyTextOf(r), isNot(contains('Etiquetas')));
+      expect(bodyTextOf(r), contains('Cuerpo de la nota.'));
+    });
+
+    test('.txt written by Noto in English', () {
+      final r = NoteImportResult.parse(
+        'note.txt',
+        'My note\n=======\n\nTags: work, ideas\n\nThe body.\n',
+      );
+
+      expect(r.tags, ['work', 'ideas']);
+      expect(bodyTextOf(r), isNot(contains('Tags:')));
+    });
+
+    test('.md, where the line sits at the end in bold', () {
+      final r = NoteImportResult.parse(
+        'nota.md',
+        '# Mi nota\n\nCuerpo de la nota.\n\n**Etiquetas:** trabajo, ideas\n',
+      );
+
+      expect(r.tags, ['trabajo', 'ideas']);
+      expect(bodyTextOf(r), isNot(contains('Etiquetas')));
+      expect(bodyTextOf(r), contains('Cuerpo de la nota.'));
+    });
+
+    test('a note without tags is untouched', () {
+      final r = NoteImportResult.parse(
+        'nota.txt',
+        'Mi nota\n=======\n\nCuerpo sin etiquetas.\n',
+      );
+
+      expect(r.tags, isEmpty);
+      expect(bodyTextOf(r), contains('Cuerpo sin etiquetas.'));
+    });
+
+    test('a sentence merely starting with the word is left alone', () {
+      final r = NoteImportResult.parse(
+        'nota.txt',
+        'Mi nota\n=======\n\nLas etiquetas: son utiles para agrupar notas.\n',
+      );
+
+      expect(r.tags, isEmpty);
+      expect(bodyTextOf(r), contains('Las etiquetas: son utiles'));
+    });
+
+    test('JSON keeps round-tripping tags as before', () {
+      final r = NoteImportResult.parse(
+        'nota.json',
+        jsonEncode({
+          'title': 'Mi nota',
+          'tags': ['trabajo'],
+          'body': [
+            {'insert': 'Cuerpo\n'},
+          ],
+        }),
+      );
+
+      expect(r.tags, ['trabajo']);
     });
   });
 }

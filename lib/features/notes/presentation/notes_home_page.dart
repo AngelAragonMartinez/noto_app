@@ -254,6 +254,7 @@ class NotesHomePage extends ConsumerWidget {
             icon: const Icon(Icons.translate_rounded),
           ),
           const _AppLockToggle(),
+          const _NoteLocationButton(),
           IconButton(
             tooltip: s.about,
             onPressed: () => showNotoAboutDialog(context, ref),
@@ -1418,7 +1419,15 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
         Expanded(
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 820),
+              // Wider once the side panel is hidden. Hiding the panel is a
+              // request for more room to write, so the text takes some of it
+              // rather than leaving a narrow column adrift in the middle of a
+              // wide window. Still capped: a line running the full width of a
+              // large monitor is tiring to read, which is why the limit exists
+              // at all.
+              constraints: BoxConstraints(
+                maxWidth: ref.watch(_sidebarVisibleProvider) ? 820 : 1100,
+              ),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(28, 22, 28, 28),
                 child: Column(
@@ -2360,6 +2369,71 @@ class _AppLockToggleState extends ConsumerState<_AppLockToggle> {
             child: Text(s.aboutClose),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Shows where the open note lives, in the same bar that confirms a save.
+///
+/// Pressing again clears it. The message is pinned rather than timed: a path
+/// is there to be read and written down, which takes longer than the couple of
+/// seconds a save confirmation needs.
+class _NoteLocationButton extends ConsumerStatefulWidget {
+  const _NoteLocationButton();
+
+  @override
+  ConsumerState<_NoteLocationButton> createState() =>
+      _NoteLocationButtonState();
+}
+
+class _NoteLocationButtonState extends ConsumerState<_NoteLocationButton> {
+  bool _showing = false;
+
+  Future<void> _toggle() async {
+    final controller = ref.read(notesControllerProvider.notifier);
+
+    if (_showing) {
+      controller.clearInfo();
+      setState(() => _showing = false);
+      return;
+    }
+
+    final s = ref.read(appStringsProvider);
+    final note = ref.read(notesControllerProvider).selectedNote;
+    final exported = note?.lastExportPath;
+    final hasFile = exported != null && exported.trim().isNotEmpty;
+
+    final location = await controller.currentNoteLocation();
+    if (!mounted) return;
+
+    controller.showPinnedInfo(
+      '${hasFile ? s.noteLocationFileLabel : s.noteLocationVaultLabel} '
+      '$location',
+    );
+    setState(() => _showing = true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = ref.watch(appStringsProvider);
+
+    // Anything else clearing the bar — a save, switching notes — leaves this
+    // button showing "hide" for a message that is gone. Follow the bar.
+    final info = ref.watch(notesControllerProvider).info;
+    if (_showing && info == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _showing) setState(() => _showing = false);
+      });
+    }
+
+    return IconButton(
+      tooltip: _showing ? s.noteLocationHide : s.noteLocationTooltip,
+      onPressed: _toggle,
+      icon: Icon(
+        _showing
+            ? Icons.folder_open_rounded
+            : Icons.folder_outlined,
       ),
     );
   }
