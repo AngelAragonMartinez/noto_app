@@ -1676,76 +1676,97 @@ class _QuillToolbar extends ConsumerWidget {
     final selectedFg = colors.onPrimary;
     final unselectedFg = colors.onSurface;
     final s = ref.watch(appStringsProvider);
+    // Grouped rather than one flat run of icons. QuillSimpleToolbar draws them
+    // all in a single row with nothing between, which is why everything looked
+    // crammed together: history, then text, then structure, then colour, each
+    // group fenced off from the next the way a desktop editor does it.
+    final base = QuillToolbarBaseButtonOptions(
+      iconTheme: QuillIconTheme(
+        iconButtonSelectedData: IconButtonData(
+          color: selectedFg,
+          style: IconButton.styleFrom(
+            backgroundColor: selectedBg,
+            foregroundColor: selectedFg,
+          ),
+        ),
+        iconButtonUnselectedData: IconButtonData(
+          color: unselectedFg,
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            foregroundColor: unselectedFg,
+          ),
+        ),
+      ),
+    );
+
+    Widget toggle(Attribute attribute) => QuillToolbarToggleStyleButton(
+          controller: controller,
+          attribute: attribute,
+          baseOptions: base,
+        );
+
+    final groups = <List<Widget>>[
+      [
+        if (onInsertImage != null)
+          IconButton(
+            tooltip: insertImageTooltip,
+            icon: const Icon(Icons.image_outlined, size: 22),
+            onPressed: () => unawaited(onInsertImage!()),
+          ),
+        _HistoryIconButton(
+            controller: controller, isUndo: true, tooltip: s.undoTooltip),
+        _HistoryIconButton(
+            controller: controller, isUndo: false, tooltip: s.redoTooltip),
+      ],
+      [
+        toggle(Attribute.bold),
+        toggle(Attribute.italic),
+        toggle(Attribute.underline),
+        toggle(Attribute.strikeThrough),
+      ],
+      [
+        toggle(Attribute.h1),
+        toggle(Attribute.h2),
+        toggle(Attribute.h3),
+      ],
+      [
+        toggle(Attribute.ul),
+        toggle(Attribute.ol),
+        QuillToolbarToggleCheckListButton(controller: controller, baseOptions: base),
+        toggle(Attribute.blockQuote),
+        toggle(Attribute.codeBlock),
+      ],
+      [
+        QuillToolbarColorButton(
+            controller: controller, isBackground: false, baseOptions: base),
+        QuillToolbarColorButton(
+            controller: controller, isBackground: true, baseOptions: base),
+      ],
+      [
+        QuillToolbarLinkStyleButton(controller: controller, baseOptions: base),
+        QuillToolbarClearFormatButton(controller: controller, baseOptions: base),
+      ],
+    ];
+
     return Container(
       color: colors.surface,
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-      child: Row(
-        children: [
-          if (onInsertImage != null)
-            IconButton(
-              tooltip: insertImageTooltip,
-              icon: const Icon(Icons.image_outlined, size: 22),
-              onPressed: () {
-                unawaited(onInsertImage!());
-              },
-            ),
-          _HistoryIconButton(
-            controller: controller,
-            isUndo: true,
-            tooltip: s.undoTooltip,
-          ),
-          _HistoryIconButton(
-            controller: controller,
-            isUndo: false,
-            tooltip: s.redoTooltip,
-          ),
-          Expanded(
-            child: QuillSimpleToolbar(
-              controller: controller,
-              config: QuillSimpleToolbarConfig(
-                multiRowsDisplay: false,
-                showUndo: false,
-                showRedo: false,
-                showFontFamily: false,
-                showFontSize: false,
-                showLineHeightButton: true,
-                showSubscript: false,
-                showSuperscript: false,
-                showSmallButton: false,
-                showSearchButton: false,
-                showAlignmentButtons: true,
-                showDirection: false,
-                showIndent: true,
-                // ignore: experimental_member_use
-                showClipboardCopy: false,
-                // ignore: experimental_member_use
-                showClipboardCut: false,
-                // ignore: experimental_member_use
-                showClipboardPaste: false,
-                buttonOptions: QuillSimpleToolbarButtonOptions(
-                  base: QuillToolbarBaseButtonOptions(
-                    iconTheme: QuillIconTheme(
-                      iconButtonSelectedData: IconButtonData(
-                        color: selectedFg,
-                        style: IconButton.styleFrom(
-                          backgroundColor: selectedBg,
-                          foregroundColor: selectedFg,
-                        ),
-                      ),
-                      iconButtonUnselectedData: IconButtonData(
-                        color: unselectedFg,
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          foregroundColor: unselectedFg,
-                        ),
-                      ),
-                    ),
-                  ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (var i = 0; i < groups.length; i++) ...[
+              if (i > 0)
+                Container(
+                  width: 1,
+                  height: 22,
+                  margin: const EdgeInsets.symmetric(horizontal: 7),
+                  color: colors.outlineVariant,
                 ),
-              ),
-            ),
-          ),
-        ],
+              ...groups[i],
+            ],
+          ],
+        ),
       ),
     );
   }
