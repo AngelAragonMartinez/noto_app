@@ -973,6 +973,30 @@ class _NoteTile extends StatelessWidget {
   }
 }
 
+/// Heading style for the editor, carrying size and weight but no colour.
+///
+/// The built-in heading styles pin a colour, and a pinned colour wins over the
+/// colour attribute sitting on the text itself. Colouring or highlighting a
+/// title therefore did nothing on screen, even though the attribute was stored
+/// and exported correctly the whole time. Leaving colour unset here gives the
+/// text's own attribute nothing to fight.
+@visibleForTesting
+DefaultTextBlockStyle notoHeadingStyle(double fontSize) {
+  return DefaultTextBlockStyle(
+    TextStyle(
+      fontSize: fontSize,
+      fontWeight: FontWeight.w600,
+      height: 1.25,
+      letterSpacing: -0.3,
+      decoration: TextDecoration.none,
+    ),
+    const HorizontalSpacing(0, 0),
+    const VerticalSpacing(16, 4),
+    const VerticalSpacing(0, 0),
+    null,
+  );
+}
+
 class NoteEditorPane extends ConsumerStatefulWidget {
   const NoteEditorPane({
     required this.note,
@@ -1636,6 +1660,9 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
     );
 
     final styles = DefaultStyles(
+      h1: notoHeadingStyle(30),
+      h2: notoHeadingStyle(24),
+      h3: notoHeadingStyle(20),
       code: DefaultTextBlockStyle(
         codeTextStyle,
         const HorizontalSpacing(12, 12),
