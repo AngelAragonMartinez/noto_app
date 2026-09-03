@@ -261,10 +261,31 @@ class NotesController extends StateNotifier<NotesState> {
     } catch (_) {}
   }
 
+  /// "New note", then "New note 2", "New note 3"...
+  ///
+  /// Every new note used to be born with the same title. A list of identical
+  /// names gives nothing to tell them apart, and exporting two of them to one
+  /// folder had the second silently overwrite the first, since the suggested
+  /// file name comes from the title.
+  static String uniqueNoteTitle(String base, Iterable<String> taken) {
+    final used = taken.map((title) => title.trim()).toSet();
+    if (!used.contains(base)) return base;
+    for (var n = 2;; n++) {
+      final candidate = '$base $n';
+      if (!used.contains(candidate)) return candidate;
+    }
+  }
+
   Future<void> createNote() async {
     await _guard(() async {
+      // Trashed notes count too: one of them restored later would otherwise
+      // collide with a name handed out in the meantime.
+      final taken = [
+        ...await _notesRepository.list(),
+        ...await _notesRepository.list(onlyDeleted: true),
+      ].map((n) => n.title);
       final note = await _notesRepository.create(
-        title: _ref.read(appStringsProvider).newNote,
+        title: uniqueNoteTitle(_ref.read(appStringsProvider).newNote, taken),
       );
       _recordBaseline(note);
       // Creating a note implies wanting to see it. Reloading with the trash

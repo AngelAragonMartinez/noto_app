@@ -127,4 +127,41 @@ void main() {
       expect(await repository.list(), isEmpty, reason: 'the note still leaves');
     });
   });
+
+  group('new note titles', () {
+    test('numbers repeats instead of reusing one name', () {
+      String next(List<String> taken) =>
+          NotesController.uniqueNoteTitle('Nota nueva', taken);
+
+      expect(next([]), 'Nota nueva');
+      expect(next(['Nota nueva']), 'Nota nueva 2');
+      expect(next(['Nota nueva', 'Nota nueva 2']), 'Nota nueva 3');
+      // A gap is filled rather than skipped past.
+      expect(next(['Nota nueva', 'Nota nueva 3']), 'Nota nueva 2');
+      // Unrelated titles do not push the counter along.
+      expect(next(['Contrato', 'Ideas']), 'Nota nueva');
+    });
+
+    test('two notes created in a row do not share a title', () async {
+      await controller().load();
+
+      await controller().createNote();
+      await controller().createNote();
+
+      final titles = (await repository.list()).map((n) => n.title).toList();
+      expect(titles.toSet(), hasLength(titles.length), reason: '$titles');
+    });
+
+    test('a trashed note still holds its name', () async {
+      await controller().load();
+      await controller().createNote();
+      final first = (await repository.list()).single;
+      await repository.moveToTrash(first.id);
+
+      await controller().createNote();
+
+      final fresh = (await repository.list()).single;
+      expect(fresh.title, isNot(first.title));
+    });
+  });
 }
