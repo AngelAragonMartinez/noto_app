@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../app/app_strings.dart';
+import '../../../app/ui_preferences.dart';
 import '../../../core/storage/adaptive_vault_store.dart';
 import '../../../core/storage/vault_paths.dart';
 import '../../documents/data/document_repository.dart';
@@ -585,6 +586,7 @@ class NotesController extends StateNotifier<NotesState> {
           toExport,
           preferredFormat: preferredFormat,
           strings: _ref.read(appStringsProvider),
+          embedImages: _ref.read(embedImagesProvider),
         );
         await _rememberLastExport(toExport, result);
         _flashInfo(
@@ -640,6 +642,7 @@ class NotesController extends StateNotifier<NotesState> {
         path,
         format,
         strings: _ref.read(appStringsProvider),
+        embedImages: _ref.read(embedImagesProvider),
       );
       await _rememberLastExport(current, result);
       _flashInfo(

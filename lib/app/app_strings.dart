@@ -352,6 +352,9 @@ class AppStrings {
   String get menuItalic => _es ? 'Cursiva' : 'Italic';
   String get menuUnderline => _es ? 'Subrayado' : 'Underline';
   String menuHeading(int level) => _es ? 'Titulo $level' : 'Heading $level';
+  String get menuEmbedImages => _es
+      ? 'Incrustar imagenes al exportar'
+      : 'Embed images on export';
   String get menuShortcuts =>
       _es ? 'Atajos de teclado' : 'Keyboard shortcuts';
   String get shortcutsDialogTitle =>

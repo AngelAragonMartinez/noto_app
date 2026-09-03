@@ -36,6 +36,7 @@ enum NotoCommand {
       SingleActivator(LogicalKeyboardKey.f1, control: true)),
   toggleTrash(NotoMenu.view,
       SingleActivator(LogicalKeyboardKey.keyT, control: true, shift: true)),
+  embedImages(NotoMenu.view, null),
 
   // Format
   bold(NotoMenu.format, SingleActivator(LogicalKeyboardKey.keyB, control: true)),
@@ -114,6 +115,8 @@ extension NotoCommandLabel on NotoCommand {
         return s.menuToggleToolbar;
       case NotoCommand.toggleTrash:
         return s.trashTab;
+      case NotoCommand.embedImages:
+        return s.menuEmbedImages;
       case NotoCommand.bold:
         return s.menuBold;
       case NotoCommand.italic:

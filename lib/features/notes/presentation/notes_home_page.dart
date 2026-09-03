@@ -18,6 +18,7 @@ import '../../../core/security/security_providers.dart';
 import '../../about/about_dialog.dart';
 import '../application/notes_controller.dart';
 import '../data/note_export_repository.dart';
+import '../../../app/ui_preferences.dart';
 import 'noto_menu_bar.dart';
 import '../domain/note.dart';
 import '../domain/note_attachment.dart';
@@ -340,6 +341,7 @@ class NotesHomePage extends ConsumerWidget {
                     selectedNoteId: state.selectedNote?.id,
                     isLoading: state.isLoading,
                     onSearch: controller.setQuery,
+                    searchFocusNode: ref.watch(notesSearchFocusProvider),
                     onCloseNote: listCloseNote,
                     onSelect: (id) async {
                       final cur =
@@ -614,6 +616,7 @@ class _NotesList extends StatelessWidget {
     required this.selectedNoteId,
     required this.isLoading,
     required this.onSearch,
+    required this.searchFocusNode,
     this.onCloseNote,
     required this.onSelect,
     required this.onCreate,
@@ -627,6 +630,7 @@ class _NotesList extends StatelessWidget {
   final String? selectedNoteId;
   final bool isLoading;
   final ValueChanged<String> onSearch;
+  final FocusNode searchFocusNode;
   final VoidCallback? onCloseNote;
   final Future<void> Function(String id) onSelect;
   final Future<void> Function() onCreate;
@@ -658,6 +662,7 @@ class _NotesList extends StatelessWidget {
                 prefixIcon: const Icon(Icons.search_rounded, size: 18),
                 isDense: true,
               ),
+              focusNode: searchFocusNode,
               onChanged: onSearch,
             ),
           ),
@@ -1070,6 +1075,7 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
     // the build that is still running.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) ref.read(activeEditorProvider.notifier).state = _quillController;
+      if (mounted) ref.read(activeFindToggleProvider.notifier).state = _toggleFind;
     });
   }
 
@@ -1123,6 +1129,7 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
   @override
   void dispose() {
     ref.read(activeEditorProvider.notifier).state = null;
+    ref.read(activeFindToggleProvider.notifier).state = null;
     _quillController.removeListener(_onQuillChanged);
     _quillController.dispose();
     _titleController.dispose();

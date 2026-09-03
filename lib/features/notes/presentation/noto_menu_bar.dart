@@ -5,16 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
 import '../../../app/app_strings.dart';
+import '../../../app/ui_preferences.dart';
 import '../../about/about_dialog.dart';
 import '../application/notes_controller.dart';
 import 'noto_commands.dart';
 import 'shortcuts_dialog.dart';
-
-/// Whether the formatting toolbar is showing.
-///
-/// Lives here rather than inside the editor so the View menu and the shortcut
-/// can reach it without owning the editor.
-final toolbarVisibleProvider = StateProvider<bool>((ref) => true);
 
 /// The editor currently on screen, or null when no note is open.
 ///
@@ -23,6 +18,19 @@ final toolbarVisibleProvider = StateProvider<bool>((ref) => true);
 /// it is mounted; menu entries that need it are disabled when it is null, which
 /// is also how the File entries behave with no note selected.
 final activeEditorProvider = StateProvider<QuillController?>((ref) => null);
+
+/// The open editor's find bar toggle, published while an editor is mounted.
+///
+/// Find lives inside the editor and always did; the menu entry needs a way to
+/// pull the same lever rather than growing a second one beside it.
+final activeFindToggleProvider = StateProvider<VoidCallback?>((ref) => null);
+
+/// Focus for the notes list search box, so the menu can put the caret in it.
+final notesSearchFocusProvider = Provider<FocusNode>((ref) {
+  final node = FocusNode(debugLabel: 'notes search');
+  ref.onDispose(node.dispose);
+  return node;
+});
 
 /// Carries a command from a key press to the one place that runs it.
 class NotoCommandIntent extends Intent {
@@ -41,6 +49,7 @@ bool canRunNotoCommand(WidgetRef ref, NotoCommand command) {
     case NotoCommand.importNote:
     case NotoCommand.toggleTrash:
     case NotoCommand.toggleToolbar:
+    case NotoCommand.embedImages:
     case NotoCommand.shortcutsGuide:
     case NotoCommand.about:
     case NotoCommand.quit:
@@ -53,7 +62,6 @@ bool canRunNotoCommand(WidgetRef ref, NotoCommand command) {
       return editable;
     case NotoCommand.undo:
     case NotoCommand.redo:
-    case NotoCommand.find:
     case NotoCommand.bold:
     case NotoCommand.italic:
     case NotoCommand.underline:
@@ -61,6 +69,8 @@ bool canRunNotoCommand(WidgetRef ref, NotoCommand command) {
     case NotoCommand.heading2:
     case NotoCommand.heading3:
       return editable && ref.read(activeEditorProvider) != null;
+    case NotoCommand.find:
+      return editable && ref.read(activeFindToggleProvider) != null;
     case NotoCommand.searchNotes:
       return true;
   }
@@ -103,17 +113,17 @@ Future<void> runNotoCommand(
     case NotoCommand.toggleTrash:
       notes.toggleTrash();
     case NotoCommand.toggleToolbar:
-      final visible = ref.read(toolbarVisibleProvider.notifier);
-      visible.state = !visible.state;
+      await ref.read(toolbarVisibleProvider.notifier).toggle();
+    case NotoCommand.embedImages:
+      await ref.read(embedImagesProvider.notifier).toggle();
     case NotoCommand.undo:
       editor!.undo();
     case NotoCommand.redo:
       editor!.redo();
     case NotoCommand.find:
-      // Handled by the editor's own binding; nothing to do from up here.
-      break;
+      ref.read(activeFindToggleProvider)?.call();
     case NotoCommand.searchNotes:
-      break;
+      ref.read(notesSearchFocusProvider).requestFocus();
     case NotoCommand.bold:
       formatLine(Attribute.bold);
     case NotoCommand.italic:
@@ -142,6 +152,18 @@ Map<ShortcutActivator, Intent> notoShortcuts() {
   };
 }
 
+/// A tick beside the options that are either on or off, so their state is
+/// visible without opening anything.
+Widget? _checkmarkFor(WidgetRef ref, NotoCommand command) {
+  final on = switch (command) {
+    NotoCommand.toggleToolbar => ref.watch(toolbarVisibleProvider),
+    NotoCommand.embedImages => ref.watch(embedImagesProvider),
+    _ => null,
+  };
+  if (on == null) return null;
+  return Icon(on ? Icons.check_rounded : null, size: 18);
+}
+
 /// The menu bar: File, Edit, View, Format, Help.
 class NotoMenuBar extends ConsumerWidget {
   const NotoMenuBar({super.key});
@@ -165,6 +187,7 @@ class NotoMenuBar extends ConsumerWidget {
             menuChildren: [
               for (final command in NotoCommand.inMenu(menu))
                 MenuItemButton(
+                  leadingIcon: _checkmarkFor(ref, command),
                   shortcut: command.shortcut,
                   onPressed: canRunNotoCommand(ref, command)
                       ? () => runNotoCommand(context, ref, command)
