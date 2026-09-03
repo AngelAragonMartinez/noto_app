@@ -18,6 +18,7 @@ import '../../../core/security/security_providers.dart';
 import '../../about/about_dialog.dart';
 import '../application/notes_controller.dart';
 import '../data/note_export_repository.dart';
+import 'noto_menu_bar.dart';
 import '../domain/note.dart';
 import '../domain/note_attachment.dart';
 import 'local_image_embed_builder.dart';
@@ -174,7 +175,9 @@ class NotesHomePage extends ConsumerWidget {
         ),
         leadingWidth: 52,
         titleSpacing: 0,
-        title: Text(s.appName),
+        // The logo already says which app this is; the menus go where a
+        // desktop app puts them, immediately after it.
+        title: const NotoMenuBar(),
         actions: [
           IconButton(
             tooltip: sidebarVisible ? s.hideSidebar : s.showSidebar,
@@ -1062,6 +1065,12 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
     _quillController = QuillController.basic(config: _buildQuillConfig());
     _quillController.addListener(_onQuillChanged);
     _syncControllers();
+    // The Format menu sits far above this editor and has to reach the
+    // document on screen. Publishing after the frame keeps it out of
+    // the build that is still running.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(activeEditorProvider.notifier).state = _quillController;
+    });
   }
 
   QuillControllerConfig _buildQuillConfig() {
@@ -1113,6 +1122,7 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
 
   @override
   void dispose() {
+    ref.read(activeEditorProvider.notifier).state = null;
     _quillController.removeListener(_onQuillChanged);
     _quillController.dispose();
     _titleController.dispose();
@@ -1404,7 +1414,7 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
           onBack: widget.onBack,
         ),
         const Divider(height: 1),
-        if (!widget.showTrash) ...[
+        if (!widget.showTrash && ref.watch(toolbarVisibleProvider)) ...[
           _QuillToolbar(
             controller: _quillController,
             onInsertImage: _insertImageFromToolbar,
