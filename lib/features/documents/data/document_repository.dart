@@ -215,7 +215,8 @@ class DocumentRepository {
     }
   }
 
-  /// Deletes [path] only if it lives under the app data directory (never arbitrary user paths).
+  /// Deletes [path] only if it lives under the app data directory (never
+  /// arbitrary user paths).
   Future<void> tryDeleteUnderAppData(String? path) async {
     if (path == null || path.isEmpty) return;
     final normalizedTarget = p.normalize(

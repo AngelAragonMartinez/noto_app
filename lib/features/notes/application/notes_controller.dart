@@ -267,14 +267,20 @@ class NotesController extends StateNotifier<NotesState> {
         title: _ref.read(appStringsProvider).newNote,
       );
       _recordBaseline(note);
+      // Creating a note implies wanting to see it. Reloading with the trash
+      // filter still on asked for deleted notes only, so a note created from
+      // Trash was filtered straight out of its own list: the button looked dead
+      // while quietly leaving orphans in the vault, every one of them carrying
+      // the same default title.
       final notes = await _notesRepository.search(
         state.query,
-        onlyDeleted: state.showTrash,
+        onlyDeleted: false,
       );
       _rebuildBaselinesFromNotes(notes);
       state = state.copyWith(
         notes: notes,
         selectedNoteId: note.id,
+        showTrash: false,
         clearError: true,
         userClearedSelection: false,
       );
@@ -472,6 +478,10 @@ class NotesController extends StateNotifier<NotesState> {
   }
 
   /// Drop note from Noto (not Trash): removes vault copy and list entry.
+  ///
+  /// Only Noto's own copies go: [DocumentRepository.tryDeleteUnderAppData]
+  /// refuses any path outside app data, so a note you also keep as a file of
+  /// your own survives this untouched. That is the point of the action.
   Future<void> removeSelectedNoteFromApp() async {
     final note = state.selectedNote;
     if (note == null) {
@@ -568,10 +578,26 @@ class NotesController extends StateNotifier<NotesState> {
       await exportSelected();
       return;
     }
-    final format = NoteExportFormat.values.firstWhere(
-      (f) => f.name == formatName,
-      orElse: () => NoteExportFormat.txt,
+    // A stored format name that matches nothing used to fall back to txt, which
+    // then wrote plain text into whatever the path was called: a .pdf or .md
+    // silently replaced by its own text contents, reported as a successful save.
+    // Recover the format from the file's extension instead, and when that is
+    // unknown too, ask through the export dialog rather than guess.
+    NoteExportFormat? resolved;
+    for (final candidate in NoteExportFormat.values) {
+      if (candidate.name == formatName) {
+        resolved = candidate;
+        break;
+      }
+    }
+    resolved ??= NoteExportFormat.fromExtension(
+      p.extension(path).replaceFirst('.', '').toLowerCase(),
     );
+    if (resolved == null) {
+      await exportSelected();
+      return;
+    }
+    final format = resolved;
     await _guard(() async {
       final latest = state.notes.firstWhere(
         (n) => n.id == note.id,
