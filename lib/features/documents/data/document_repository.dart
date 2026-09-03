@@ -245,9 +245,6 @@ class DocumentRepository {
     return url;
   }
 
-  Future<void> deleteExportCopyIfManaged(String? exportPath) =>
-      tryDeleteUnderAppData(exportPath);
-
   /// Removes local image files referenced in the Quill delta JSON (only under app data).
   Future<void> deleteInlineImagesFromQuillBody(String body) async {
     if (body.trim().isEmpty) return;

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notes_app/app/app_strings.dart';
 import 'package:notes_app/core/storage/vault_paths.dart';
+import 'package:notes_app/features/documents/data/document_repository.dart';
 import 'package:notes_app/features/notes/application/notes_controller.dart';
 import 'package:notes_app/features/notes/data/note_export_repository.dart';
 import 'package:notes_app/features/notes/data/notes_repository.dart';
@@ -34,6 +35,9 @@ void main() {
     container = ProviderContainer(
       overrides: [
         notesRepositoryProvider.overrideWithValue(repository),
+        documentRepositoryProvider.overrideWithValue(
+          DocumentRepository(paths: _TempPaths(root)),
+        ),
         noteExportRepositoryProvider.overrideWithValue(
           NoteExportRepository(paths: _TempPaths(root)),
         ),
@@ -97,6 +101,30 @@ void main() {
         contains('# Titulo'),
         reason: 'written as Markdown, matching the .md it replaced',
       );
+    });
+  });
+
+  group('removing a note from Noto', () {
+    // The Save dialog used to open inside the app's own exports folder, and the
+    // purge deleted anything under app data on the assumption that it was a copy
+    // Noto had made. Saving without navigating elsewhere therefore handed the
+    // user's file to the next removal. lastExportPath is always a path the user
+    // picked, so it is never Noto's to delete, wherever it happens to sit.
+    test('leaves the file the user saved, even inside app data', () async {
+      final saved = File(p.join(root.path, 'nota.md'))
+        ..writeAsStringSync('# Mi nota');
+      var note = await repository.create(title: 'Mi nota');
+      note = await repository.save(note.copyWith(
+        lastExportPath: saved.path,
+        lastExportFormat: 'markdown',
+      ));
+      await controller().load();
+      controller().select(note.id);
+
+      await controller().removeSelectedNoteFromApp();
+
+      expect(saved.existsSync(), isTrue, reason: 'the saved file survives');
+      expect(await repository.list(), isEmpty, reason: 'the note still leaves');
     });
   });
 }

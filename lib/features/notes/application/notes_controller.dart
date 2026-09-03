@@ -473,7 +473,13 @@ class NotesController extends StateNotifier<NotesState> {
         await _documentRepository.deleteVaultFile(attachment.vaultName);
       } catch (_) {}
     }
-    await _documentRepository.deleteExportCopyIfManaged(note.lastExportPath);
+    // lastExportPath is never Noto's own copy: it is set from the path the user
+    // picked in the Save dialog, or the file they imported. This used to be run
+    // through a helper that deleted it whenever it happened to sit under app
+    // data, and the Save dialog opened inside app data by default, so saving
+    // without navigating elsewhere put the user's file in a folder Noto later
+    // emptied. Provenance is not location; a file the user chose a place for is
+    // never ours to delete.
     await _documentRepository.deleteInlineImagesFromQuillBody(note.body);
   }
 

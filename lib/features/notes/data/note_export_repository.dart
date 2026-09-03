@@ -51,7 +51,7 @@ class NoteExportRepository {
     required AppStrings strings,
     NoteExportFormat? preferredFormat,
   }) async {
-    final directory = await _paths.exportsDirectory();
+    final directory = await _paths.initialSaveDirectory();
     final safeTitle =
         _safeFileName(note.title.trim().isEmpty ? 'nota' : note.title);
 
