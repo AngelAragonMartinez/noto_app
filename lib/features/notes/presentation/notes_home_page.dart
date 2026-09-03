@@ -17,6 +17,7 @@ import '../../../core/security/security_providers.dart';
 import '../application/notes_controller.dart';
 import '../data/note_export_repository.dart';
 import '../../../app/ui_preferences.dart';
+import 'noto_commands.dart';
 import 'noto_menu_bar.dart';
 import '../domain/note.dart';
 import '../domain/note_attachment.dart';
@@ -203,6 +204,29 @@ class NotesHomePage extends ConsumerWidget {
                 }
               },
             ),
+          // Also in the View menu with their shortcuts. Word and LibreOffice
+          // duplicate the common ones as icons too, and burying these made them
+          // feel gone. Both routes call the same dispatcher, so there is one
+          // behaviour rather than two that can drift.
+          IconButton(
+            tooltip: NotoCommand.toggleLanguage.label(s),
+            onPressed: () => unawaited(
+                runNotoCommand(context, ref, NotoCommand.toggleLanguage)),
+            icon: const Icon(Icons.translate_rounded),
+          ),
+          IconButton(
+            tooltip: NotoCommand.cycleTheme.label(s),
+            onPressed: () =>
+                unawaited(runNotoCommand(context, ref, NotoCommand.cycleTheme)),
+            icon: const Icon(Icons.brightness_6_outlined),
+          ),
+          IconButton(
+            tooltip: NotoCommand.newNote.label(s),
+            onPressed: canRunNotoCommand(ref, NotoCommand.newNote)
+                ? () => unawaited(runNotoCommand(context, ref, NotoCommand.newNote))
+                : null,
+            icon: const Icon(Icons.edit_note_rounded),
+          ),
           const _AppLockToggle(),
           const _NoteLocationButton(),
           const SizedBox(width: 6),
@@ -1676,76 +1700,104 @@ class _QuillToolbar extends ConsumerWidget {
     final selectedFg = colors.onPrimary;
     final unselectedFg = colors.onSurface;
     final s = ref.watch(appStringsProvider);
+    // Grouped rather than one flat run. QuillSimpleToolbar draws everything in a
+    // single row with nothing between, which is what made the strip read as one
+    // undifferentiated block.
+    //
+    // Headings use their own widget: QuillToolbarToggleStyleButton has no icon
+    // or tooltip for the header attribute and throws when asked for one, which
+    // took the whole editor pane down with it.
+    final base = QuillToolbarBaseButtonOptions(
+      iconTheme: QuillIconTheme(
+        iconButtonSelectedData: IconButtonData(
+          color: selectedFg,
+          style: IconButton.styleFrom(
+            backgroundColor: selectedBg,
+            foregroundColor: selectedFg,
+          ),
+        ),
+        iconButtonUnselectedData: IconButtonData(
+          color: unselectedFg,
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            foregroundColor: unselectedFg,
+          ),
+        ),
+      ),
+    );
+
+    Widget toggle(Attribute attribute) => QuillToolbarToggleStyleButton(
+          controller: controller,
+          attribute: attribute,
+          baseOptions: base,
+        );
+
+    final groups = <List<Widget>>[
+      [
+        if (onInsertImage != null)
+          IconButton(
+            tooltip: insertImageTooltip,
+            icon: const Icon(Icons.image_outlined, size: 22),
+            onPressed: () => unawaited(onInsertImage!()),
+          ),
+        _HistoryIconButton(
+            controller: controller, isUndo: true, tooltip: s.undoTooltip),
+        _HistoryIconButton(
+            controller: controller, isUndo: false, tooltip: s.redoTooltip),
+      ],
+      [
+        toggle(Attribute.bold),
+        toggle(Attribute.italic),
+        toggle(Attribute.underline),
+        toggle(Attribute.strikeThrough),
+        toggle(Attribute.inlineCode),
+      ],
+      [
+        QuillToolbarSelectHeaderStyleButtons(
+          controller: controller,
+          baseOptions: base,
+          options: const QuillToolbarSelectHeaderStyleButtonsOptions(
+            attributes: [Attribute.h1, Attribute.h2, Attribute.h3],
+          ),
+        ),
+      ],
+      [
+        toggle(Attribute.ul),
+        toggle(Attribute.ol),
+        toggle(Attribute.blockQuote),
+        toggle(Attribute.codeBlock),
+      ],
+      [
+        QuillToolbarColorButton(
+            controller: controller, isBackground: false, baseOptions: base),
+        QuillToolbarColorButton(
+            controller: controller, isBackground: true, baseOptions: base),
+      ],
+      [
+        QuillToolbarLinkStyleButton(controller: controller, baseOptions: base),
+        QuillToolbarClearFormatButton(controller: controller, baseOptions: base),
+      ],
+    ];
+
     return Container(
       color: colors.surface,
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-      child: Row(
-        children: [
-          if (onInsertImage != null)
-            IconButton(
-              tooltip: insertImageTooltip,
-              icon: const Icon(Icons.image_outlined, size: 22),
-              onPressed: () {
-                unawaited(onInsertImage!());
-              },
-            ),
-          _HistoryIconButton(
-            controller: controller,
-            isUndo: true,
-            tooltip: s.undoTooltip,
-          ),
-          _HistoryIconButton(
-            controller: controller,
-            isUndo: false,
-            tooltip: s.redoTooltip,
-          ),
-          Expanded(
-            child: QuillSimpleToolbar(
-              controller: controller,
-              config: QuillSimpleToolbarConfig(
-                multiRowsDisplay: false,
-                showUndo: false,
-                showRedo: false,
-                showFontFamily: false,
-                showFontSize: false,
-                showLineHeightButton: true,
-                showSubscript: false,
-                showSuperscript: false,
-                showSmallButton: false,
-                showSearchButton: false,
-                showAlignmentButtons: true,
-                showDirection: false,
-                showIndent: true,
-                // ignore: experimental_member_use
-                showClipboardCopy: false,
-                // ignore: experimental_member_use
-                showClipboardCut: false,
-                // ignore: experimental_member_use
-                showClipboardPaste: false,
-                buttonOptions: QuillSimpleToolbarButtonOptions(
-                  base: QuillToolbarBaseButtonOptions(
-                    iconTheme: QuillIconTheme(
-                      iconButtonSelectedData: IconButtonData(
-                        color: selectedFg,
-                        style: IconButton.styleFrom(
-                          backgroundColor: selectedBg,
-                          foregroundColor: selectedFg,
-                        ),
-                      ),
-                      iconButtonUnselectedData: IconButtonData(
-                        color: unselectedFg,
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          foregroundColor: unselectedFg,
-                        ),
-                      ),
-                    ),
-                  ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (var i = 0; i < groups.length; i++) ...[
+              if (i > 0)
+                Container(
+                  width: 1,
+                  height: 22,
+                  margin: const EdgeInsets.symmetric(horizontal: 7),
+                  color: colors.outlineVariant,
                 ),
-              ),
-            ),
-          ),
-        ],
+              ...groups[i],
+            ],
+          ],
+        ),
       ),
     );
   }
