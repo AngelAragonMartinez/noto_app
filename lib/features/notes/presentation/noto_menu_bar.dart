@@ -125,12 +125,7 @@ Future<void> runNotoCommand(
       final sidebar = ref.read(sidebarVisibleProvider.notifier);
       sidebar.state = !sidebar.state;
     case NotoCommand.cycleTheme:
-      final theme = ref.read(themeModeProvider.notifier);
-      theme.state = switch (theme.state) {
-        ThemeMode.system => ThemeMode.light,
-        ThemeMode.light => ThemeMode.dark,
-        ThemeMode.dark => ThemeMode.system,
-      };
+      await ref.read(themeChoiceProvider.notifier).cycle();
     case NotoCommand.toggleLanguage:
       await ref.read(localeControllerProvider.notifier).toggleEnglishSpanish();
     case NotoCommand.undo:

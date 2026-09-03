@@ -17,6 +17,7 @@ import '../../../core/security/security_providers.dart';
 import '../application/notes_controller.dart';
 import '../data/note_export_repository.dart';
 import '../../../app/ui_preferences.dart';
+import '../../../app/theme_controller.dart';
 import 'noto_commands.dart';
 import 'noto_menu_bar.dart';
 import '../domain/note.dart';
@@ -215,7 +216,14 @@ class NotesHomePage extends ConsumerWidget {
             icon: const Icon(Icons.translate_rounded),
           ),
           IconButton(
-            tooltip: NotoCommand.cycleTheme.label(s),
+            // Says which mode is on and what the next tap does, so the cycle is
+            // discoverable without opening the menu.
+            tooltip: switch (ref.watch(themeChoiceProvider)) {
+              NotoTheme.system => s.themeTooltipSystem,
+              NotoTheme.light => s.themeTooltipLight,
+              NotoTheme.dark => s.themeTooltipDark,
+              NotoTheme.byTime => s.themeTooltipByTime,
+            },
             onPressed: () =>
                 unawaited(runNotoCommand(context, ref, NotoCommand.cycleTheme)),
             icon: const Icon(Icons.brightness_6_outlined),

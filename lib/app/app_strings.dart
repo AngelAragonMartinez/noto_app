@@ -168,8 +168,18 @@ class AppStrings {
   String get themeTooltipLight =>
       _es ? 'Modo claro fijado (toca para oscuro)' : 'Light mode (tap for dark)';
 
-  String get themeTooltipDark =>
-      _es ? 'Modo oscuro fijado (toca para seguir al sistema)' : 'Dark mode (tap to follow system again)';
+  String get themeTooltipDark => _es
+      ? 'Modo oscuro fijado (toca para automatico segun la hora)'
+      : 'Dark mode (tap for automatic by time of day)';
+
+  String get themeTooltipByTime => _es
+      ? 'Automatico segun la hora: claro de dia, oscuro de noche '
+          '(toca para seguir al sistema)'
+      : 'Automatic by time of day: light by day, dark at night '
+          '(tap to follow system again)';
+
+  String get menuThemeByTime =>
+      _es ? 'Automatico segun la hora' : 'Automatic by time of day';
 
   String get newNote => _es ? 'Nota nueva' : 'New note';
 
