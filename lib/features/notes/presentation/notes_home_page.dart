@@ -12,10 +12,8 @@ import 'package:path/path.dart' as p;
 import '../../../app/app_strings.dart';
 import '../../../app/document_logo.dart';
 import '../../../app/locale_controller.dart';
-import '../../../app/theme_controller.dart';
 import '../../../core/security/app_lock_preference.dart';
 import '../../../core/security/security_providers.dart';
-import '../../about/about_dialog.dart';
 import '../application/notes_controller.dart';
 import '../data/note_export_repository.dart';
 import '../../../app/ui_preferences.dart';
@@ -148,7 +146,6 @@ Future<bool> confirmDiscardIfNeeded(
   return true;
 }
 
-final _sidebarVisibleProvider = StateProvider<bool>((ref) => true);
 
 class NotesHomePage extends ConsumerWidget {
   const NotesHomePage({super.key});
@@ -157,68 +154,46 @@ class NotesHomePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(notesControllerProvider);
     final controller = ref.read(notesControllerProvider.notifier);
-    final themeMode = ref.watch(themeModeProvider);
-    final themeController = ref.read(themeModeProvider.notifier);
-    final sidebarVisible = ref.watch(_sidebarVisibleProvider);
-    final sidebarController = ref.read(_sidebarVisibleProvider.notifier);
+    final sidebarVisible = ref.watch(sidebarVisibleProvider);
+    final sidebarController = ref.read(sidebarVisibleProvider.notifier);
     final colors = Theme.of(context).colorScheme;
     final s = ref.watch(appStringsProvider);
 
     return Scaffold(
       appBar: AppBar(
-        leading: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: DocumentLogo(
-            size: 28,
-            color: colors.onSurface,
-            background: colors.surface,
-          ),
+        // The panel toggle belongs beside the thing it opens, on the left.
+        leading: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 12, right: 4),
+              child: DocumentLogo(
+                size: 28,
+                color: colors.onSurface,
+                background: colors.surface,
+              ),
+            ),
+            IconButton(
+              tooltip: sidebarVisible ? s.hideSidebar : s.showSidebar,
+              onPressed: () => sidebarController.state = !sidebarVisible,
+              icon: Icon(
+                sidebarVisible
+                    ? Icons.menu_open_rounded
+                    : Icons.view_sidebar_outlined,
+              ),
+            ),
+          ],
         ),
-        leadingWidth: 52,
+        leadingWidth: 96,
         titleSpacing: 0,
         // The logo already says which app this is; the menus go where a
         // desktop app puts them, immediately after it.
         title: const NotoMenuBar(),
+        // Word and LibreOffice keep the top strip to menus, not a row of
+        // icons: everything that used to sit here now lives in a menu with
+        // its shortcut written beside it. What is left needs a dialog of its
+        // own before it can move.
         actions: [
-          IconButton(
-            tooltip: sidebarVisible ? s.hideSidebar : s.showSidebar,
-            onPressed: () => sidebarController.state = !sidebarVisible,
-            icon: Icon(
-              sidebarVisible
-                  ? Icons.menu_open_rounded
-                  : Icons.view_sidebar_outlined,
-            ),
-          ),
-          Builder(
-            builder: (context) {
-              final platform = MediaQuery.platformBrightnessOf(context);
-              final isDark = themeMode == ThemeMode.dark ||
-                  (themeMode == ThemeMode.system &&
-                      platform == Brightness.dark);
-              final tooltip = switch (themeMode) {
-                ThemeMode.system => s.themeTooltipSystem,
-                ThemeMode.light => s.themeTooltipLight,
-                ThemeMode.dark => s.themeTooltipDark,
-              };
-              return IconButton(
-                tooltip: tooltip,
-                onPressed: () {
-                  themeController.state = switch (themeMode) {
-                    ThemeMode.system => ThemeMode.light,
-                    ThemeMode.light => ThemeMode.dark,
-                    ThemeMode.dark => ThemeMode.system,
-                  };
-                },
-                icon: Icon(
-                  themeMode == ThemeMode.system
-                      ? Icons.brightness_auto_outlined
-                      : (isDark
-                          ? Icons.light_mode_outlined
-                          : Icons.dark_mode_outlined),
-                ),
-              );
-            },
-          ),
           if (!state.showTrash)
             _OpenImportMenu(
               strings: s,
@@ -228,42 +203,8 @@ class NotesHomePage extends ConsumerWidget {
                 }
               },
             ),
-          IconButton(
-            tooltip: s.newNote,
-            onPressed: state.showTrash
-                ? null
-                : () {
-                    unawaited(() async {
-                      final cur =
-                          ref.read(notesControllerProvider).selectedNote;
-                      if (!await confirmDiscardIfNeeded(context, ref, cur)) {
-                        return;
-                      }
-                      if (!context.mounted) return;
-                      final isNarrow =
-                          MediaQuery.sizeOf(context).width < 720;
-                      await controller.createNote();
-                      if (isNarrow) {
-                        sidebarController.state = false;
-                      }
-                    }());
-                  },
-            icon: const Icon(Icons.edit_note_rounded),
-          ),
-          IconButton(
-            tooltip: s.languageTooltip,
-            onPressed: () => ref
-                .read(localeControllerProvider.notifier)
-                .toggleEnglishSpanish(),
-            icon: const Icon(Icons.translate_rounded),
-          ),
           const _AppLockToggle(),
           const _NoteLocationButton(),
-          IconButton(
-            tooltip: s.about,
-            onPressed: () => showNotoAboutDialog(context, ref),
-            icon: const Icon(Icons.info_outline_rounded),
-          ),
           const SizedBox(width: 6),
         ],
       ),
@@ -1073,10 +1014,10 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
     // The Format menu sits far above this editor and has to reach the
     // document on screen. Publishing after the frame keeps it out of
     // the build that is still running.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ref.read(activeEditorProvider.notifier).state = _quillController;
-      if (mounted) ref.read(activeFindToggleProvider.notifier).state = _toggleFind;
-    });
+    // Published straight away rather than a frame later: for that one frame
+    // the Format menu had nothing to act on and drew itself greyed out.
+    ref.read(activeEditorProvider.notifier).state = _quillController;
+    ref.read(activeFindToggleProvider.notifier).state = _toggleFind;
   }
 
   QuillControllerConfig _buildQuillConfig() {
@@ -1128,8 +1069,14 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
 
   @override
   void dispose() {
-    ref.read(activeEditorProvider.notifier).state = null;
-    ref.read(activeFindToggleProvider.notifier).state = null;
+    // Only if what is published is still mine. Flutter can mount the next
+    // editor before disposing this one, and clearing unconditionally took
+    // the new one down with it: the Format menu stayed grey with a note
+    // open, and every shortcut that needs the editor did nothing.
+    if (ref.read(activeEditorProvider) == _quillController) {
+      ref.read(activeEditorProvider.notifier).state = null;
+      ref.read(activeFindToggleProvider.notifier).state = null;
+    }
     _quillController.removeListener(_onQuillChanged);
     _quillController.dispose();
     _titleController.dispose();
@@ -1467,7 +1414,7 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
               // large monitor is tiring to read, which is why the limit exists
               // at all.
               constraints: BoxConstraints(
-                maxWidth: ref.watch(_sidebarVisibleProvider) ? 820 : 1100,
+                maxWidth: ref.watch(sidebarVisibleProvider) ? 820 : 1100,
               ),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(28, 22, 28, 28),

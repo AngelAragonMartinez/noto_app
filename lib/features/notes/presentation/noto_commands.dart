@@ -37,6 +37,10 @@ enum NotoCommand {
   toggleTrash(NotoMenu.view,
       SingleActivator(LogicalKeyboardKey.keyT, control: true, shift: true)),
   embedImages(NotoMenu.view, null),
+  toggleSidebar(NotoMenu.view,
+      SingleActivator(LogicalKeyboardKey.f9)),
+  cycleTheme(NotoMenu.view, null),
+  toggleLanguage(NotoMenu.view, null),
 
   // Format
   bold(NotoMenu.format, SingleActivator(LogicalKeyboardKey.keyB, control: true)),
@@ -117,6 +121,12 @@ extension NotoCommandLabel on NotoCommand {
         return s.trashTab;
       case NotoCommand.embedImages:
         return s.menuEmbedImages;
+      case NotoCommand.toggleSidebar:
+        return s.menuSidebar;
+      case NotoCommand.cycleTheme:
+        return s.menuTheme;
+      case NotoCommand.toggleLanguage:
+        return s.languageTooltip;
       case NotoCommand.bold:
         return s.menuBold;
       case NotoCommand.italic:

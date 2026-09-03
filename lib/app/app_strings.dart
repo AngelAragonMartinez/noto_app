@@ -352,6 +352,8 @@ class AppStrings {
   String get menuItalic => _es ? 'Cursiva' : 'Italic';
   String get menuUnderline => _es ? 'Subrayado' : 'Underline';
   String menuHeading(int level) => _es ? 'Titulo $level' : 'Heading $level';
+  String get menuSidebar => _es ? 'Panel lateral' : 'Side panel';
+  String get menuTheme => _es ? 'Tema' : 'Theme';
   String get menuEmbedImages => _es
       ? 'Incrustar imagenes al exportar'
       : 'Embed images on export';

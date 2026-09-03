@@ -78,3 +78,9 @@ final embedImagesProvider =
     StateNotifierProvider<EmbedImagesOnExport, bool>((ref) {
   return EmbedImagesOnExport();
 });
+
+/// Whether the notes list is showing beside the editor.
+///
+/// Not persisted: on a narrow window the layout closes it by itself, so
+/// remembering it would restore a state the window may no longer have room for.
+final sidebarVisibleProvider = StateProvider<bool>((ref) => true);

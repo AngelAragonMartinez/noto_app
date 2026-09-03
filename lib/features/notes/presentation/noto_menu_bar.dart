@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
 import '../../../app/app_strings.dart';
+import '../../../app/locale_controller.dart';
+import '../../../app/theme_controller.dart';
 import '../../../app/ui_preferences.dart';
 import '../../about/about_dialog.dart';
 import '../application/notes_controller.dart';
@@ -50,6 +52,9 @@ bool canRunNotoCommand(WidgetRef ref, NotoCommand command) {
     case NotoCommand.toggleTrash:
     case NotoCommand.toggleToolbar:
     case NotoCommand.embedImages:
+    case NotoCommand.toggleSidebar:
+    case NotoCommand.cycleTheme:
+    case NotoCommand.toggleLanguage:
     case NotoCommand.shortcutsGuide:
     case NotoCommand.about:
     case NotoCommand.quit:
@@ -116,6 +121,18 @@ Future<void> runNotoCommand(
       await ref.read(toolbarVisibleProvider.notifier).toggle();
     case NotoCommand.embedImages:
       await ref.read(embedImagesProvider.notifier).toggle();
+    case NotoCommand.toggleSidebar:
+      final sidebar = ref.read(sidebarVisibleProvider.notifier);
+      sidebar.state = !sidebar.state;
+    case NotoCommand.cycleTheme:
+      final theme = ref.read(themeModeProvider.notifier);
+      theme.state = switch (theme.state) {
+        ThemeMode.system => ThemeMode.light,
+        ThemeMode.light => ThemeMode.dark,
+        ThemeMode.dark => ThemeMode.system,
+      };
+    case NotoCommand.toggleLanguage:
+      await ref.read(localeControllerProvider.notifier).toggleEnglishSpanish();
     case NotoCommand.undo:
       editor!.undo();
     case NotoCommand.redo:
