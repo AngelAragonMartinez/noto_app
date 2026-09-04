@@ -147,6 +147,13 @@ jobs:
           ( cd dist && sha256sum ./*.tar.gz > SHA256SUMS-linux.txt )
           cat dist/SHA256SUMS-linux.txt
 
+          # Linux only ever shipped a tarball: extract it and run the binary by
+          # hand, with no menu entry and no icon, while Windows got an installer.
+          # The .deb closes that gap. Dependencies are read off the binaries by
+          # tool/build_deb.sh rather than listed by hand.
+          tool/build_deb.sh
+          cat dist/SHA256SUMS-deb.txt
+
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: noto-linux-release
