@@ -1885,36 +1885,8 @@ class _EditorToolbar extends StatelessWidget {
               onPressed: onToggleFind,
               icon: const Icon(Icons.search_rounded, size: 20),
             ),
-            const SizedBox(width: 4),
-            _ToolbarButton(
-              icon: Icons.attach_file_rounded,
-              label: strings.attach,
-              onPressed: onAttach,
-            ),
-            const SizedBox(width: 4),
-            Builder(
-              builder: (btnContext) => _ToolbarButton(
-                icon: Icons.save_outlined,
-                label: quickSaveLabel,
-                onPressed: canQuickSave
-                    ? onQuickSave
-                    : () => _showFormatMenu(btnContext, onExport, strings),
-              ),
-            ),
-            const SizedBox(width: 4),
-            Builder(
-              builder: (btnContext) => _ToolbarButton(
-                icon: Icons.save_as_outlined,
-                label: strings.saveAs,
-                onPressed: () => _showFormatMenu(btnContext, onExport, strings),
-              ),
-            ),
-            const SizedBox(width: 4),
-            IconButton(
-              tooltip: strings.moveToTrash,
-              onPressed: onMoveToTrash,
-              icon: const Icon(Icons.delete_outline, size: 20),
-            ),
+            // Attach, Save, Save as and Move to trash live in the File menu with
+            // their shortcuts. Repeating them here only crowded the strip.
           ] else ...[
             _ToolbarButton(
               icon: Icons.restore_rounded,
@@ -2258,69 +2230,7 @@ class _FindReplaceBar extends StatelessWidget {
   }
 }
 
-IconData _formatIcon(NoteExportFormat format) {
-  switch (format) {
-    case NoteExportFormat.pdf:
-      return Icons.picture_as_pdf_outlined;
-    case NoteExportFormat.rtf:
-      return Icons.description_outlined;
-    case NoteExportFormat.markdown:
-      return Icons.code_outlined;
-    case NoteExportFormat.html:
-      return Icons.html_outlined;
-    case NoteExportFormat.json:
-      return Icons.data_object_outlined;
-    case NoteExportFormat.txt:
-      return Icons.notes_outlined;
-  }
-}
 
-Future<void> _showFormatMenu(
-  BuildContext context,
-  Future<void> Function({NoteExportFormat? preferredFormat}) onExport,
-  AppStrings strings,
-) async {
-  final renderBox = context.findRenderObject() as RenderBox?;
-  final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
-  if (renderBox == null || overlay == null) return;
-  final origin = renderBox.localToGlobal(Offset.zero, ancestor: overlay);
-  final size = renderBox.size;
-  final selected = await showMenu<NoteExportFormat>(
-    context: context,
-    position: RelativeRect.fromLTRB(
-      origin.dx,
-      origin.dy + size.height + 4,
-      overlay.size.width - origin.dx - size.width,
-      0,
-    ),
-    items: [
-      for (final fmt in NoteExportFormat.values)
-        PopupMenuItem<NoteExportFormat>(
-          value: fmt,
-          child: Row(
-            children: [
-              Icon(_formatIcon(fmt), size: 16),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  strings.exportFormatLabel(fmt),
-                  style: const TextStyle(fontSize: 13),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                '.${fmt.extension}',
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-            ],
-          ),
-        ),
-    ],
-  );
-  if (selected != null) {
-    await onExport(preferredFormat: selected);
-  }
-}
 
 /// Turns the startup lock on and off.
 ///
