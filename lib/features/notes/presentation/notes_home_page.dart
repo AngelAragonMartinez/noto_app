@@ -1876,7 +1876,9 @@ class _EditorToolbar extends StatelessWidget {
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
               ),
             ),
-          const Spacer(),
+          // No Spacer: it pinned every action to the right edge and left a wide
+          // empty band across the middle of the strip on a large window.
+          const SizedBox(width: 8),
           if (!showTrash) ...[
             IconButton(
               tooltip: strings.findReplace,

@@ -187,11 +187,16 @@ class NotoMenuBar extends ConsumerWidget {
     ref.watch(notesControllerProvider);
     ref.watch(activeEditorProvider);
 
+    // Packed tight and pinned left. Left to itself the bar takes the width it
+    // is given and spreads the menus through it, which is where the gap between
+    // Ver and Formato came from.
     return MenuBar(
       style: const MenuStyle(
         elevation: WidgetStatePropertyAll(0),
         backgroundColor: WidgetStatePropertyAll(Colors.transparent),
         padding: WidgetStatePropertyAll(EdgeInsets.zero),
+        alignment: Alignment.centerLeft,
+        maximumSize: WidgetStatePropertyAll(Size.fromHeight(40)),
       ),
       children: [
         for (final menu in NotoMenu.values)
