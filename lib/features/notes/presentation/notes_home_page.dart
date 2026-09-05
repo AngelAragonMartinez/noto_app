@@ -216,13 +216,6 @@ class NotesHomePage extends ConsumerWidget {
                 unawaited(runNotoCommand(context, ref, NotoCommand.cycleTheme)),
             icon: const Icon(Icons.brightness_6_outlined),
           ),
-          IconButton(
-            tooltip: NotoCommand.newNote.label(s),
-            onPressed: canRunNotoCommand(ref, NotoCommand.newNote)
-                ? () => unawaited(runNotoCommand(context, ref, NotoCommand.newNote))
-                : null,
-            icon: const Icon(Icons.edit_note_rounded),
-          ),
           const SizedBox(width: 6),
         ],
       ),
@@ -1772,11 +1765,8 @@ class _EditorToolbar extends StatelessWidget {
           // empty band across the middle of the strip on a large window.
           const SizedBox(width: 8),
           if (!showTrash) ...[
-            IconButton(
-              tooltip: strings.findReplace,
-              onPressed: onToggleFind,
-              icon: const Icon(Icons.search_rounded, size: 20),
-            ),
+            // Find is Ctrl+F and sits in the Edit menu. A magnifier that cannot
+            // be hidden was one more permanent icon for something already reachable.
             // Attach, Save, Save as and Move to trash live in the File menu with
             // their shortcuts. Repeating them here only crowded the strip.
           ] else ...[
