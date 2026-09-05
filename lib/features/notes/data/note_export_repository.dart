@@ -37,6 +37,29 @@ enum NoteExportFormat {
   }
 }
 
+/// The file types the save dialog offers.
+///
+/// One type when a format was asked for by name, every type otherwise. The two
+/// were briefly conflated with the remembered default, which narrowed the
+/// dialog to whatever the note was saved as last time: save once as text and
+/// text was the only thing ever offered again.
+List<XTypeGroup> exportTypeGroups(
+  NoteExportFormat? preferredFormat,
+  AppStrings strings,
+) {
+  final offered = preferredFormat != null
+      ? [preferredFormat]
+      : NoteExportFormat.values;
+  return [
+    for (final format in offered)
+      XTypeGroup(
+        label: strings.exportFormatLabel(format),
+        extensions: [format.extension],
+      ),
+  ];
+}
+
+
 class NoteExportRepository {
   NoteExportRepository({
     VaultPaths? paths,
@@ -50,6 +73,13 @@ class NoteExportRepository {
     Note note, {
     required AppStrings strings,
     NoteExportFormat? preferredFormat,
+    /// Which extension to suggest, without narrowing what can be chosen.
+    ///
+    /// Separate from [preferredFormat] on purpose. That one restricts the
+    /// dialog to a single type, which is right when the format was asked for
+    /// by name and wrong as a remembered default: a note saved once as text
+    /// could then never be offered anything else.
+    NoteExportFormat? suggestedFormat,
     bool embedImages = false,
   }) async {
     final directory = await _paths.initialSaveDirectory();
@@ -58,21 +88,9 @@ class NoteExportRepository {
 
     // If the app picked a format from the Save-as menu, the native dialog
     // only offers that type so the extension always matches.
-    final groups = preferredFormat != null
-        ? <XTypeGroup>[
-            XTypeGroup(
-              label: strings.exportFormatLabel(preferredFormat),
-              extensions: [preferredFormat.extension],
-            ),
-          ]
-        : <XTypeGroup>[
-            for (final format in NoteExportFormat.values)
-              XTypeGroup(
-                label: strings.exportFormatLabel(format),
-                extensions: [format.extension],
-              ),
-          ];
-    final defaultFormat = preferredFormat ?? NoteExportFormat.txt;
+    final groups = exportTypeGroups(preferredFormat, strings);
+    final defaultFormat =
+        preferredFormat ?? suggestedFormat ?? NoteExportFormat.txt;
     final location = await getSaveLocation(
       acceptedTypeGroups: groups,
       initialDirectory: directory.path,

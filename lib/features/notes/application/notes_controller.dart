@@ -582,22 +582,21 @@ class NotesController extends StateNotifier<NotesState> {
           (n) => n.id == note.id,
           orElse: () => latest,
         );
-        // With no format asked for, offer the one this note was last saved as.
-        // The dialog suggested .txt regardless, and when the portal does not
-        // report which filter is active that .txt decided the format: choosing
-        // Markdown in the dialog still wrote plain text into a .txt file.
-        var wanted = preferredFormat;
-        if (wanted == null && toExport.lastExportFormat != null) {
-          for (final candidate in NoteExportFormat.values) {
-            if (candidate.name == toExport.lastExportFormat) {
-              wanted = candidate;
-              break;
-            }
+        // The format this note was saved as last time, offered as the default
+        // only. Passing it as the preferred format restricted the dialog to that
+        // single type, so a note saved once as text could never be offered
+        // anything else again.
+        NoteExportFormat? remembered;
+        for (final candidate in NoteExportFormat.values) {
+          if (candidate.name == toExport.lastExportFormat) {
+            remembered = candidate;
+            break;
           }
         }
         final result = await _exportRepository.export(
           toExport,
-          preferredFormat: wanted,
+          preferredFormat: preferredFormat,
+          suggestedFormat: remembered,
           strings: _ref.read(appStringsProvider),
           embedImages: _ref.read(embedImagesProvider),
         );
