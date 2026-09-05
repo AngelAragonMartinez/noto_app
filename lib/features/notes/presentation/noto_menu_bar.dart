@@ -15,6 +15,7 @@ import '../../about/about_dialog.dart';
 import '../../../core/security/app_lock_preference.dart';
 import '../../../core/security/security_providers.dart';
 import '../application/notes_controller.dart';
+import '../data/note_export_repository.dart';
 import 'noto_commands.dart';
 import 'shortcuts_dialog.dart';
 
@@ -216,6 +217,33 @@ Map<ShortcutActivator, Intent> notoShortcuts() {
   };
 }
 
+/// Save as, with the format chosen here rather than in the system dialog.
+///
+/// Picking the type in the dialog's own dropdown was not reliable: the portal
+/// does not always report which filter is active, and the suggested name
+/// carried .txt, so choosing Markdown there could still write plain text into a
+/// .txt file. Choosing here means the dialog is offered a single type and the
+/// extension always matches what was asked for.
+Widget _saveAsSubmenu(BuildContext context, WidgetRef ref, AppStrings s) {
+  final enabled = canRunNotoCommand(ref, NotoCommand.saveAs);
+  return SubmenuButton(
+    menuChildren: [
+      for (final format in NoteExportFormat.values)
+        MenuItemButton(
+          onPressed: enabled
+              ? () => unawaited(
+                    ref
+                        .read(notesControllerProvider.notifier)
+                        .exportSelected(preferredFormat: format),
+                  )
+              : null,
+          child: Text(s.exportFormatLabel(format)),
+        ),
+    ],
+    child: Text(s.saveAs),
+  );
+}
+
 /// Files opened before, or a dash when there are none yet.
 Widget _recentSubmenu(WidgetRef ref, AppStrings s) {
   final recent = ref.watch(recentImportsProvider).asData?.value ?? const <String>[];
@@ -285,6 +313,7 @@ class NotoMenuBar extends ConsumerWidget {
                       : null,
                   child: Text(command.label(s)),
                 ),
+              if (menu == NotoMenu.file) _saveAsSubmenu(context, ref, s),
               if (menu == NotoMenu.file) _recentSubmenu(ref, s),
             ],
             onOpen: menu == NotoMenu.file
