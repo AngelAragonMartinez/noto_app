@@ -839,6 +839,28 @@ class _NoteTile extends StatelessWidget {
   }
 }
 
+/// Letter colour that keeps text readable on [rawHighlight], or null to leave
+/// it alone.
+///
+/// A highlight is chosen for the page, not for the theme. In dark mode the text
+/// is near-white, so a pale yellow highlight arrived under near-white letters
+/// and the words vanished. Light mode has the same problem upside down.
+///
+/// It only steps in when the two fall on the same side. A dark highlight in
+/// light mode, or a bright one in dark mode, already reads fine and keeps
+/// whatever colour the text was given.
+@visibleForTesting
+Color? textColourOnHighlight(String rawHighlight, Brightness themeBrightness) {
+  final hex = NoteExportRepository.normaliseColor(rawHighlight);
+  if (hex == null) return null;
+  final highlight = Color(0xFF000000 | int.parse(hex.substring(1), radix: 16));
+  final highlightIsLight = highlight.computeLuminance() > 0.45;
+  final lettersAreLight = themeBrightness == Brightness.dark;
+  if (highlightIsLight != lettersAreLight) return null;
+  return highlightIsLight ? const Color(0xFF1C1C1E) : const Color(0xFFF5F5F7);
+}
+
+
 /// Heading style for the editor, carrying size and weight but no colour.
 ///
 /// The built-in heading styles pin a colour, and a pinned colour wins over the
@@ -1411,6 +1433,20 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
                           expands: true,
                           scrollable: true,
                           customStyles: _buildEditorStyles(context),
+                          customStyleBuilder: (attribute) {
+                            if (attribute.key != Attribute.background.key) {
+                              return const TextStyle();
+                            }
+                            final value = attribute.value;
+                            if (value is! String) return const TextStyle();
+                            final colour = textColourOnHighlight(
+                              value,
+                              Theme.of(context).brightness,
+                            );
+                            return colour == null
+                                ? const TextStyle()
+                                : TextStyle(color: colour);
+                          },
                           embedBuilders: [
                             LocalFileImageEmbedBuilder(
                               documents:
