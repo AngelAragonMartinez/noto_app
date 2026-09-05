@@ -22,6 +22,7 @@ enum NotoCommand {
   attach(NotoMenu.file, SingleActivator(LogicalKeyboardKey.keyD, control: true)),
   moveToTrash(NotoMenu.file,
       SingleActivator(LogicalKeyboardKey.delete, control: true)),
+  noteLocation(NotoMenu.file, null),
   quit(NotoMenu.file, SingleActivator(LogicalKeyboardKey.keyQ, control: true)),
 
   // Edit
@@ -41,6 +42,7 @@ enum NotoCommand {
       SingleActivator(LogicalKeyboardKey.f9)),
   cycleTheme(NotoMenu.view, null),
   toggleLanguage(NotoMenu.view, null),
+  appLock(NotoMenu.view, null),
 
   // Format
   bold(NotoMenu.format, SingleActivator(LogicalKeyboardKey.keyB, control: true)),
@@ -105,6 +107,10 @@ extension NotoCommandLabel on NotoCommand {
         return s.menuAttach;
       case NotoCommand.moveToTrash:
         return s.moveToTrash;
+      case NotoCommand.noteLocation:
+        return s.menuNoteLocation;
+      case NotoCommand.appLock:
+        return s.menuAppLock;
       case NotoCommand.quit:
         return s.menuQuit;
       case NotoCommand.undo:

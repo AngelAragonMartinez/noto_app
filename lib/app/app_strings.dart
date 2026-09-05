@@ -353,6 +353,10 @@ class AppStrings {
 
   String get menuImport => _es ? 'Importar nota...' : 'Import note...';
   String get menuAttach => _es ? 'Adjuntar archivo...' : 'Attach file...';
+  String get menuNoteLocation =>
+      _es ? 'Donde vive esta nota' : 'Where this note lives';
+  String get menuAppLock => _es ? 'Bloqueo al abrir' : 'Lock on startup';
+  String get menuRecent => _es ? 'Recientes' : 'Recent';
   String get menuQuit => _es ? 'Salir' : 'Quit';
   String get menuFind => _es ? 'Buscar en la nota' : 'Find in note';
   String get menuSearchNotes => _es ? 'Buscar notas' : 'Search notes';
