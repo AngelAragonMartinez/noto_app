@@ -12,12 +12,14 @@ import 'package:path/path.dart' as p;
 import '../../../app/app_strings.dart';
 import '../../../app/document_logo.dart';
 import '../../../app/locale_controller.dart';
-import '../../../app/theme_controller.dart';
 import '../../../core/security/app_lock_preference.dart';
 import '../../../core/security/security_providers.dart';
-import '../../about/about_dialog.dart';
 import '../application/notes_controller.dart';
 import '../data/note_export_repository.dart';
+import '../../../app/ui_preferences.dart';
+import '../../../app/theme_controller.dart';
+import 'noto_commands.dart';
+import 'noto_menu_bar.dart';
 import '../domain/note.dart';
 import '../domain/note_attachment.dart';
 import 'local_image_embed_builder.dart';
@@ -146,7 +148,6 @@ Future<bool> confirmDiscardIfNeeded(
   return true;
 }
 
-final _sidebarVisibleProvider = StateProvider<bool>((ref) => true);
 
 class NotesHomePage extends ConsumerWidget {
   const NotesHomePage({super.key});
@@ -155,66 +156,46 @@ class NotesHomePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(notesControllerProvider);
     final controller = ref.read(notesControllerProvider.notifier);
-    final themeMode = ref.watch(themeModeProvider);
-    final themeController = ref.read(themeModeProvider.notifier);
-    final sidebarVisible = ref.watch(_sidebarVisibleProvider);
-    final sidebarController = ref.read(_sidebarVisibleProvider.notifier);
+    final sidebarVisible = ref.watch(sidebarVisibleProvider);
+    final sidebarController = ref.read(sidebarVisibleProvider.notifier);
     final colors = Theme.of(context).colorScheme;
     final s = ref.watch(appStringsProvider);
 
     return Scaffold(
       appBar: AppBar(
-        leading: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: DocumentLogo(
-            size: 28,
-            color: colors.onSurface,
-            background: colors.surface,
-          ),
-        ),
-        leadingWidth: 52,
-        titleSpacing: 0,
-        title: Text(s.appName),
-        actions: [
-          IconButton(
-            tooltip: sidebarVisible ? s.hideSidebar : s.showSidebar,
-            onPressed: () => sidebarController.state = !sidebarVisible,
-            icon: Icon(
-              sidebarVisible
-                  ? Icons.menu_open_rounded
-                  : Icons.view_sidebar_outlined,
+        // The panel toggle belongs beside the thing it opens, on the left.
+        leading: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 12, right: 4),
+              child: DocumentLogo(
+                size: 28,
+                color: colors.onSurface,
+                background: colors.surface,
+              ),
             ),
-          ),
-          Builder(
-            builder: (context) {
-              final platform = MediaQuery.platformBrightnessOf(context);
-              final isDark = themeMode == ThemeMode.dark ||
-                  (themeMode == ThemeMode.system &&
-                      platform == Brightness.dark);
-              final tooltip = switch (themeMode) {
-                ThemeMode.system => s.themeTooltipSystem,
-                ThemeMode.light => s.themeTooltipLight,
-                ThemeMode.dark => s.themeTooltipDark,
-              };
-              return IconButton(
-                tooltip: tooltip,
-                onPressed: () {
-                  themeController.state = switch (themeMode) {
-                    ThemeMode.system => ThemeMode.light,
-                    ThemeMode.light => ThemeMode.dark,
-                    ThemeMode.dark => ThemeMode.system,
-                  };
-                },
-                icon: Icon(
-                  themeMode == ThemeMode.system
-                      ? Icons.brightness_auto_outlined
-                      : (isDark
-                          ? Icons.light_mode_outlined
-                          : Icons.dark_mode_outlined),
-                ),
-              );
-            },
-          ),
+            IconButton(
+              tooltip: sidebarVisible ? s.hideSidebar : s.showSidebar,
+              onPressed: () => sidebarController.state = !sidebarVisible,
+              icon: Icon(
+                sidebarVisible
+                    ? Icons.menu_open_rounded
+                    : Icons.view_sidebar_outlined,
+              ),
+            ),
+          ],
+        ),
+        leadingWidth: 96,
+        titleSpacing: 0,
+        // The logo already says which app this is; the menus go where a
+        // desktop app puts them, immediately after it.
+        title: const NotoMenuBar(),
+        // Word and LibreOffice keep the top strip to menus, not a row of
+        // icons: everything that used to sit here now lives in a menu with
+        // its shortcut written beside it. What is left needs a dialog of its
+        // own before it can move.
+        actions: [
           if (!state.showTrash)
             _OpenImportMenu(
               strings: s,
@@ -224,42 +205,38 @@ class NotesHomePage extends ConsumerWidget {
                 }
               },
             ),
+          // Also in the View menu with their shortcuts. Word and LibreOffice
+          // duplicate the common ones as icons too, and burying these made them
+          // feel gone. Both routes call the same dispatcher, so there is one
+          // behaviour rather than two that can drift.
           IconButton(
-            tooltip: s.newNote,
-            onPressed: state.showTrash
-                ? null
-                : () {
-                    unawaited(() async {
-                      final cur =
-                          ref.read(notesControllerProvider).selectedNote;
-                      if (!await confirmDiscardIfNeeded(context, ref, cur)) {
-                        return;
-                      }
-                      if (!context.mounted) return;
-                      final isNarrow =
-                          MediaQuery.sizeOf(context).width < 720;
-                      await controller.createNote();
-                      if (isNarrow) {
-                        sidebarController.state = false;
-                      }
-                    }());
-                  },
-            icon: const Icon(Icons.edit_note_rounded),
+            tooltip: NotoCommand.toggleLanguage.label(s),
+            onPressed: () => unawaited(
+                runNotoCommand(context, ref, NotoCommand.toggleLanguage)),
+            icon: const Icon(Icons.translate_rounded),
           ),
           IconButton(
-            tooltip: s.languageTooltip,
-            onPressed: () => ref
-                .read(localeControllerProvider.notifier)
-                .toggleEnglishSpanish(),
-            icon: const Icon(Icons.translate_rounded),
+            // Says which mode is on and what the next tap does, so the cycle is
+            // discoverable without opening the menu.
+            tooltip: switch (ref.watch(themeChoiceProvider)) {
+              NotoTheme.system => s.themeTooltipSystem,
+              NotoTheme.light => s.themeTooltipLight,
+              NotoTheme.dark => s.themeTooltipDark,
+              NotoTheme.byTime => s.themeTooltipByTime,
+            },
+            onPressed: () =>
+                unawaited(runNotoCommand(context, ref, NotoCommand.cycleTheme)),
+            icon: const Icon(Icons.brightness_6_outlined),
+          ),
+          IconButton(
+            tooltip: NotoCommand.newNote.label(s),
+            onPressed: canRunNotoCommand(ref, NotoCommand.newNote)
+                ? () => unawaited(runNotoCommand(context, ref, NotoCommand.newNote))
+                : null,
+            icon: const Icon(Icons.edit_note_rounded),
           ),
           const _AppLockToggle(),
           const _NoteLocationButton(),
-          IconButton(
-            tooltip: s.about,
-            onPressed: () => showNotoAboutDialog(context, ref),
-            icon: const Icon(Icons.info_outline_rounded),
-          ),
           const SizedBox(width: 6),
         ],
       ),
@@ -337,6 +314,7 @@ class NotesHomePage extends ConsumerWidget {
                     selectedNoteId: state.selectedNote?.id,
                     isLoading: state.isLoading,
                     onSearch: controller.setQuery,
+                    searchFocusNode: ref.watch(notesSearchFocusProvider),
                     onCloseNote: listCloseNote,
                     onSelect: (id) async {
                       final cur =
@@ -611,6 +589,7 @@ class _NotesList extends StatelessWidget {
     required this.selectedNoteId,
     required this.isLoading,
     required this.onSearch,
+    required this.searchFocusNode,
     this.onCloseNote,
     required this.onSelect,
     required this.onCreate,
@@ -624,6 +603,7 @@ class _NotesList extends StatelessWidget {
   final String? selectedNoteId;
   final bool isLoading;
   final ValueChanged<String> onSearch;
+  final FocusNode searchFocusNode;
   final VoidCallback? onCloseNote;
   final Future<void> Function(String id) onSelect;
   final Future<void> Function() onCreate;
@@ -655,6 +635,7 @@ class _NotesList extends StatelessWidget {
                 prefixIcon: const Icon(Icons.search_rounded, size: 18),
                 isDense: true,
               ),
+              focusNode: searchFocusNode,
               onChanged: onSearch,
             ),
           ),
@@ -973,6 +954,30 @@ class _NoteTile extends StatelessWidget {
   }
 }
 
+/// Heading style for the editor, carrying size and weight but no colour.
+///
+/// The built-in heading styles pin a colour, and a pinned colour wins over the
+/// colour attribute sitting on the text itself. Colouring or highlighting a
+/// title therefore did nothing on screen, even though the attribute was stored
+/// and exported correctly the whole time. Leaving colour unset here gives the
+/// text's own attribute nothing to fight.
+@visibleForTesting
+DefaultTextBlockStyle notoHeadingStyle(double fontSize) {
+  return DefaultTextBlockStyle(
+    TextStyle(
+      fontSize: fontSize,
+      fontWeight: FontWeight.w600,
+      height: 1.25,
+      letterSpacing: -0.3,
+      decoration: TextDecoration.none,
+    ),
+    const HorizontalSpacing(0, 0),
+    const VerticalSpacing(16, 4),
+    const VerticalSpacing(0, 0),
+    null,
+  );
+}
+
 class NoteEditorPane extends ConsumerStatefulWidget {
   const NoteEditorPane({
     required this.note,
@@ -1038,6 +1043,13 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
     _quillController = QuillController.basic(config: _buildQuillConfig());
     _quillController.addListener(_onQuillChanged);
     _syncControllers();
+    // The Format menu sits far above this editor and has to reach the
+    // document on screen. Publishing after the frame keeps it out of
+    // the build that is still running.
+    // Published straight away rather than a frame later: for that one frame
+    // the Format menu had nothing to act on and drew itself greyed out.
+    ref.read(activeEditorProvider.notifier).state = _quillController;
+    ref.read(activeFindToggleProvider.notifier).state = _toggleFind;
   }
 
   QuillControllerConfig _buildQuillConfig() {
@@ -1089,6 +1101,14 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
 
   @override
   void dispose() {
+    // Only if what is published is still mine. Flutter can mount the next
+    // editor before disposing this one, and clearing unconditionally took
+    // the new one down with it: the Format menu stayed grey with a note
+    // open, and every shortcut that needs the editor did nothing.
+    if (ref.read(activeEditorProvider) == _quillController) {
+      ref.read(activeEditorProvider.notifier).state = null;
+      ref.read(activeFindToggleProvider.notifier).state = null;
+    }
     _quillController.removeListener(_onQuillChanged);
     _quillController.dispose();
     _titleController.dispose();
@@ -1380,7 +1400,7 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
           onBack: widget.onBack,
         ),
         const Divider(height: 1),
-        if (!widget.showTrash) ...[
+        if (!widget.showTrash && ref.watch(toolbarVisibleProvider)) ...[
           _QuillToolbar(
             controller: _quillController,
             onInsertImage: _insertImageFromToolbar,
@@ -1426,7 +1446,7 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
               // large monitor is tiring to read, which is why the limit exists
               // at all.
               constraints: BoxConstraints(
-                maxWidth: ref.watch(_sidebarVisibleProvider) ? 820 : 1100,
+                maxWidth: ref.watch(sidebarVisibleProvider) ? 820 : 1100,
               ),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(28, 22, 28, 28),
@@ -1636,6 +1656,9 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
     );
 
     final styles = DefaultStyles(
+      h1: notoHeadingStyle(30),
+      h2: notoHeadingStyle(24),
+      h3: notoHeadingStyle(20),
       code: DefaultTextBlockStyle(
         codeTextStyle,
         const HorizontalSpacing(12, 12),
@@ -1853,43 +1876,17 @@ class _EditorToolbar extends StatelessWidget {
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
               ),
             ),
-          const Spacer(),
+          // No Spacer: it pinned every action to the right edge and left a wide
+          // empty band across the middle of the strip on a large window.
+          const SizedBox(width: 8),
           if (!showTrash) ...[
             IconButton(
               tooltip: strings.findReplace,
               onPressed: onToggleFind,
               icon: const Icon(Icons.search_rounded, size: 20),
             ),
-            const SizedBox(width: 4),
-            _ToolbarButton(
-              icon: Icons.attach_file_rounded,
-              label: strings.attach,
-              onPressed: onAttach,
-            ),
-            const SizedBox(width: 4),
-            Builder(
-              builder: (btnContext) => _ToolbarButton(
-                icon: Icons.save_outlined,
-                label: quickSaveLabel,
-                onPressed: canQuickSave
-                    ? onQuickSave
-                    : () => _showFormatMenu(btnContext, onExport, strings),
-              ),
-            ),
-            const SizedBox(width: 4),
-            Builder(
-              builder: (btnContext) => _ToolbarButton(
-                icon: Icons.save_as_outlined,
-                label: strings.saveAs,
-                onPressed: () => _showFormatMenu(btnContext, onExport, strings),
-              ),
-            ),
-            const SizedBox(width: 4),
-            IconButton(
-              tooltip: strings.moveToTrash,
-              onPressed: onMoveToTrash,
-              icon: const Icon(Icons.delete_outline, size: 20),
-            ),
+            // Attach, Save, Save as and Move to trash live in the File menu with
+            // their shortcuts. Repeating them here only crowded the strip.
           ] else ...[
             _ToolbarButton(
               icon: Icons.restore_rounded,
@@ -2233,69 +2230,7 @@ class _FindReplaceBar extends StatelessWidget {
   }
 }
 
-IconData _formatIcon(NoteExportFormat format) {
-  switch (format) {
-    case NoteExportFormat.pdf:
-      return Icons.picture_as_pdf_outlined;
-    case NoteExportFormat.rtf:
-      return Icons.description_outlined;
-    case NoteExportFormat.markdown:
-      return Icons.code_outlined;
-    case NoteExportFormat.html:
-      return Icons.html_outlined;
-    case NoteExportFormat.json:
-      return Icons.data_object_outlined;
-    case NoteExportFormat.txt:
-      return Icons.notes_outlined;
-  }
-}
 
-Future<void> _showFormatMenu(
-  BuildContext context,
-  Future<void> Function({NoteExportFormat? preferredFormat}) onExport,
-  AppStrings strings,
-) async {
-  final renderBox = context.findRenderObject() as RenderBox?;
-  final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
-  if (renderBox == null || overlay == null) return;
-  final origin = renderBox.localToGlobal(Offset.zero, ancestor: overlay);
-  final size = renderBox.size;
-  final selected = await showMenu<NoteExportFormat>(
-    context: context,
-    position: RelativeRect.fromLTRB(
-      origin.dx,
-      origin.dy + size.height + 4,
-      overlay.size.width - origin.dx - size.width,
-      0,
-    ),
-    items: [
-      for (final fmt in NoteExportFormat.values)
-        PopupMenuItem<NoteExportFormat>(
-          value: fmt,
-          child: Row(
-            children: [
-              Icon(_formatIcon(fmt), size: 16),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  strings.exportFormatLabel(fmt),
-                  style: const TextStyle(fontSize: 13),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                '.${fmt.extension}',
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-            ],
-          ),
-        ),
-    ],
-  );
-  if (selected != null) {
-    await onExport(preferredFormat: selected);
-  }
-}
 
 /// Turns the startup lock on and off.
 ///

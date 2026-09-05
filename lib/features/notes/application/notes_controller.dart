@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../app/app_strings.dart';
+import '../../../app/ui_preferences.dart';
 import '../../../core/storage/adaptive_vault_store.dart';
 import '../../../core/storage/vault_paths.dart';
 import '../../documents/data/document_repository.dart';
@@ -261,20 +262,47 @@ class NotesController extends StateNotifier<NotesState> {
     } catch (_) {}
   }
 
+  /// "New note", then "New note 2", "New note 3"...
+  ///
+  /// Every new note used to be born with the same title. A list of identical
+  /// names gives nothing to tell them apart, and exporting two of them to one
+  /// folder had the second silently overwrite the first, since the suggested
+  /// file name comes from the title.
+  static String uniqueNoteTitle(String base, Iterable<String> taken) {
+    final used = taken.map((title) => title.trim()).toSet();
+    if (!used.contains(base)) return base;
+    for (var n = 2;; n++) {
+      final candidate = '$base $n';
+      if (!used.contains(candidate)) return candidate;
+    }
+  }
+
   Future<void> createNote() async {
     await _guard(() async {
+      // Trashed notes count too: one of them restored later would otherwise
+      // collide with a name handed out in the meantime.
+      final taken = [
+        ...await _notesRepository.list(),
+        ...await _notesRepository.list(onlyDeleted: true),
+      ].map((n) => n.title);
       final note = await _notesRepository.create(
-        title: _ref.read(appStringsProvider).newNote,
+        title: uniqueNoteTitle(_ref.read(appStringsProvider).newNote, taken),
       );
       _recordBaseline(note);
+      // Creating a note implies wanting to see it. Reloading with the trash
+      // filter still on asked for deleted notes only, so a note created from
+      // Trash was filtered straight out of its own list: the button looked dead
+      // while quietly leaving orphans in the vault, every one of them carrying
+      // the same default title.
       final notes = await _notesRepository.search(
         state.query,
-        onlyDeleted: state.showTrash,
+        onlyDeleted: false,
       );
       _rebuildBaselinesFromNotes(notes);
       state = state.copyWith(
         notes: notes,
         selectedNoteId: note.id,
+        showTrash: false,
         clearError: true,
         userClearedSelection: false,
       );
@@ -467,11 +495,21 @@ class NotesController extends StateNotifier<NotesState> {
         await _documentRepository.deleteVaultFile(attachment.vaultName);
       } catch (_) {}
     }
-    await _documentRepository.deleteExportCopyIfManaged(note.lastExportPath);
+    // lastExportPath is never Noto's own copy: it is set from the path the user
+    // picked in the Save dialog, or the file they imported. This used to be run
+    // through a helper that deleted it whenever it happened to sit under app
+    // data, and the Save dialog opened inside app data by default, so saving
+    // without navigating elsewhere put the user's file in a folder Noto later
+    // emptied. Provenance is not location; a file the user chose a place for is
+    // never ours to delete.
     await _documentRepository.deleteInlineImagesFromQuillBody(note.body);
   }
 
   /// Drop note from Noto (not Trash): removes vault copy and list entry.
+  ///
+  /// Only Noto's own copies go: [DocumentRepository.tryDeleteUnderAppData]
+  /// refuses any path outside app data, so a note you also keep as a file of
+  /// your own survives this untouched. That is the point of the action.
   Future<void> removeSelectedNoteFromApp() async {
     final note = state.selectedNote;
     if (note == null) {
@@ -548,6 +586,7 @@ class NotesController extends StateNotifier<NotesState> {
           toExport,
           preferredFormat: preferredFormat,
           strings: _ref.read(appStringsProvider),
+          embedImages: _ref.read(embedImagesProvider),
         );
         await _rememberLastExport(toExport, result);
         _flashInfo(
@@ -568,10 +607,26 @@ class NotesController extends StateNotifier<NotesState> {
       await exportSelected();
       return;
     }
-    final format = NoteExportFormat.values.firstWhere(
-      (f) => f.name == formatName,
-      orElse: () => NoteExportFormat.txt,
+    // A stored format name that matches nothing used to fall back to txt, which
+    // then wrote plain text into whatever the path was called: a .pdf or .md
+    // silently replaced by its own text contents, reported as a successful save.
+    // Recover the format from the file's extension instead, and when that is
+    // unknown too, ask through the export dialog rather than guess.
+    NoteExportFormat? resolved;
+    for (final candidate in NoteExportFormat.values) {
+      if (candidate.name == formatName) {
+        resolved = candidate;
+        break;
+      }
+    }
+    resolved ??= NoteExportFormat.fromExtension(
+      p.extension(path).replaceFirst('.', '').toLowerCase(),
     );
+    if (resolved == null) {
+      await exportSelected();
+      return;
+    }
+    final format = resolved;
     await _guard(() async {
       final latest = state.notes.firstWhere(
         (n) => n.id == note.id,
@@ -587,6 +642,7 @@ class NotesController extends StateNotifier<NotesState> {
         path,
         format,
         strings: _ref.read(appStringsProvider),
+        embedImages: _ref.read(embedImagesProvider),
       );
       await _rememberLastExport(current, result);
       _flashInfo(

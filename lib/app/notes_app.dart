@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_quill/flutter_quill.dart';
@@ -9,6 +10,7 @@ import 'app_theme.dart';
 import 'locale_controller.dart';
 import 'theme_controller.dart';
 import '../features/notes/application/notes_controller.dart';
+import '../features/notes/presentation/noto_menu_bar.dart';
 import '../features/notes/presentation/quit_save_dialog.dart';
 
 class NotesApp extends ConsumerStatefulWidget {
@@ -88,6 +90,26 @@ class _NotesAppState extends ConsumerState<NotesApp>
       darkTheme: AppTheme.dark(),
       themeMode: ref.watch(themeModeProvider),
       locale: ref.watch(localeControllerProvider),
+      // App-wide, so a shortcut works wherever the focus happens to be. Both
+      // maps merge into the defaults instead of replacing them, which is what
+      // passing them here would otherwise do: no more copy, paste or tab
+      // traversal anywhere in the app.
+      shortcuts: {
+        ...WidgetsApp.defaultShortcuts,
+        ...notoShortcuts(),
+      },
+      actions: {
+        ...WidgetsApp.defaultActions,
+        NotoCommandIntent: CallbackAction<NotoCommandIntent>(
+          onInvoke: (intent) {
+            final ctx = rootNavigatorKey.currentContext;
+            if (ctx != null && ctx.mounted) {
+              unawaited(runNotoCommand(ctx, ref, intent.command));
+            }
+            return null;
+          },
+        ),
+      },
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,

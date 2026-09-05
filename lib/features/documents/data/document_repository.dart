@@ -215,7 +215,8 @@ class DocumentRepository {
     }
   }
 
-  /// Deletes [path] only if it lives under the app data directory (never arbitrary user paths).
+  /// Deletes [path] only if it lives under the app data directory (never
+  /// arbitrary user paths).
   Future<void> tryDeleteUnderAppData(String? path) async {
     if (path == null || path.isEmpty) return;
     final normalizedTarget = p.normalize(
@@ -243,9 +244,6 @@ class DocumentRepository {
     }
     return url;
   }
-
-  Future<void> deleteExportCopyIfManaged(String? exportPath) =>
-      tryDeleteUnderAppData(exportPath);
 
   /// Removes local image files referenced in the Quill delta JSON (only under app data).
   Future<void> deleteInlineImagesFromQuillBody(String body) async {

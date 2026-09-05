@@ -168,8 +168,18 @@ class AppStrings {
   String get themeTooltipLight =>
       _es ? 'Modo claro fijado (toca para oscuro)' : 'Light mode (tap for dark)';
 
-  String get themeTooltipDark =>
-      _es ? 'Modo oscuro fijado (toca para seguir al sistema)' : 'Dark mode (tap to follow system again)';
+  String get themeTooltipDark => _es
+      ? 'Modo oscuro fijado (toca para automatico segun la hora)'
+      : 'Dark mode (tap for automatic by time of day)';
+
+  String get themeTooltipByTime => _es
+      ? 'Automatico segun la hora: claro de dia, oscuro de noche '
+          '(toca para seguir al sistema)'
+      : 'Automatic by time of day: light by day, dark at night '
+          '(tap to follow system again)';
+
+  String get menuThemeByTime =>
+      _es ? 'Automatico segun la hora' : 'Automatic by time of day';
 
   String get newNote => _es ? 'Nota nueva' : 'New note';
 
@@ -332,6 +342,35 @@ class AppStrings {
 
   String get closeNoteListTooltip =>
       _es ? 'Quitar de Noto' : 'Remove from Noto';
+
+  // Menu bar. The shortcut shown beside each entry is derived from the command
+  // table, never written here, so a rebinding cannot leave these lying.
+  String get menuFile => _es ? 'Archivo' : 'File';
+  String get menuEdit => _es ? 'Editar' : 'Edit';
+  String get menuView => _es ? 'Ver' : 'View';
+  String get menuFormat => _es ? 'Formato' : 'Format';
+  String get menuHelp => _es ? 'Ayuda' : 'Help';
+
+  String get menuImport => _es ? 'Importar nota...' : 'Import note...';
+  String get menuAttach => _es ? 'Adjuntar archivo...' : 'Attach file...';
+  String get menuQuit => _es ? 'Salir' : 'Quit';
+  String get menuFind => _es ? 'Buscar en la nota' : 'Find in note';
+  String get menuSearchNotes => _es ? 'Buscar notas' : 'Search notes';
+  String get menuToggleToolbar =>
+      _es ? 'Barra de herramientas' : 'Toolbar';
+  String get menuBold => _es ? 'Negrita' : 'Bold';
+  String get menuItalic => _es ? 'Cursiva' : 'Italic';
+  String get menuUnderline => _es ? 'Subrayado' : 'Underline';
+  String menuHeading(int level) => _es ? 'Titulo $level' : 'Heading $level';
+  String get menuSidebar => _es ? 'Panel lateral' : 'Side panel';
+  String get menuTheme => _es ? 'Tema' : 'Theme';
+  String get menuEmbedImages => _es
+      ? 'Incrustar imagenes al exportar'
+      : 'Embed images on export';
+  String get menuShortcuts =>
+      _es ? 'Atajos de teclado' : 'Keyboard shortcuts';
+  String get shortcutsDialogTitle =>
+      _es ? 'Atajos de teclado' : 'Keyboard shortcuts';
 
   String get restore => _es ? 'Restaurar' : 'Restore';
 

@@ -50,8 +50,9 @@ class NoteExportRepository {
     Note note, {
     required AppStrings strings,
     NoteExportFormat? preferredFormat,
+    bool embedImages = false,
   }) async {
-    final directory = await _paths.exportsDirectory();
+    final directory = await _paths.initialSaveDirectory();
     final safeTitle =
         _safeFileName(note.title.trim().isEmpty ? 'nota' : note.title);
 
@@ -86,7 +87,13 @@ class NoteExportRepository {
     // Menu-chosen format wins; otherwise infer from filter or filename.
     final format = preferredFormat ?? _detectFormat(location, defaultFormat);
     final file = File(_ensureExtension(location.path, format.extension));
-    return _writeNote(note, file, format, strings: strings);
+    return _writeNote(
+      note,
+      file,
+      format,
+      strings: strings,
+      embedImages: embedImages,
+    );
   }
 
   Future<NoteExportResult> saveAt(
@@ -95,6 +102,7 @@ class NoteExportRepository {
     NoteExportFormat format, {
     required AppStrings strings,
     bool includeAttachments = true,
+    bool embedImages = false,
   }) async {
     final file = File(_ensureExtension(path, format.extension));
     return _writeNote(
@@ -103,6 +111,7 @@ class NoteExportRepository {
       format,
       strings: strings,
       includeAttachments: includeAttachments,
+      embedImages: embedImages,
     );
   }
 
@@ -112,9 +121,11 @@ class NoteExportRepository {
     NoteExportFormat format, {
     required AppStrings strings,
     bool includeAttachments = true,
+    bool embedImages = false,
   }) async {
+    final usedSidecarNames = <String>{};
     final exportedAttachments = includeAttachments
-        ? await _writeAttachments(note, file)
+        ? await _writeAttachments(note, file, usedSidecarNames)
         : const <_ExportedAttachment>[];
     // Inline images are encrypted, so reading them is asynchronous while the
     // HTML, RTF and PDF builders below are synchronous. Decrypt them all once
@@ -126,8 +137,14 @@ class NoteExportRepository {
             await _renderBinary(note, format, exportedAttachments, strings);
         await file.writeAsBytes(bytes, flush: true);
       } else {
+        // RTF has no way to point at a picture beside the document, so it always
+        // embeds. The rest default to files on disk: smaller, readable, and the
+        // images stay usable on their own.
+        final sidecarImages = embedImages || format == NoteExportFormat.rtf
+            ? const <String, String>{}
+            : await _writeInlineImages(note.body, file, usedSidecarNames);
         await file.writeAsString(
-          _render(note, format, exportedAttachments, strings),
+          _render(note, format, exportedAttachments, sidecarImages, strings),
           flush: true,
         );
       }
@@ -161,23 +178,78 @@ class NoteExportRepository {
 
   bool _isBinary(NoteExportFormat format) => format == NoteExportFormat.pdf;
 
-  Future<List<_ExportedAttachment>> _writeAttachments(
-    Note note,
-    File mainFile,
-  ) async {
-    if (_documents == null || note.attachments.isEmpty) {
-      return const [];
-    }
+  /// Folder written beside the document, holding attachments and inline images.
+  String _sidecarFolderName(File mainFile) {
     final baseName = _safeFileName(
       p.basenameWithoutExtension(mainFile.path).trim().isEmpty
           ? 'nota'
           : p.basenameWithoutExtension(mainFile.path),
     );
-    final folderName = '$baseName-adjuntos';
-    final attachDir = Directory(p.join(p.dirname(mainFile.path), folderName));
-    await attachDir.create(recursive: true);
+    return '$baseName-adjuntos';
+  }
 
-    final used = <String>{};
+  Future<Directory> _sidecarDirectory(File mainFile) async {
+    final dir = Directory(
+      p.join(p.dirname(mainFile.path), _sidecarFolderName(mainFile)),
+    );
+    await dir.create(recursive: true);
+    return dir;
+  }
+
+  /// Writes the note's inline images beside the document, one file each, and
+  /// maps every source to its path relative to the document.
+  ///
+  /// They used to be inlined as base64, which inflates each image by a third and
+  /// buries the text under encoded blocks. JSON did not even do that: it kept
+  /// absolute paths into the vault, which mean nothing on another machine and
+  /// nothing on this one once the note is gone.
+  Future<Map<String, String>> _writeInlineImages(
+    String body,
+    File mainFile,
+    Set<String> used,
+  ) async {
+    if (_inlineImageBytes.isEmpty) return const {};
+    final folderName = _sidecarFolderName(mainFile);
+    final dir = await _sidecarDirectory(mainFile);
+    final out = <String, String>{};
+    var index = 1;
+    for (final op in _deltaOps(body)) {
+      final insert = op['insert'];
+      if (insert is! Map || insert['image'] is! String) continue;
+      final src = insert['image'] as String;
+      if (out.containsKey(src)) continue;
+      final absolute = _localImageAbsolutePath(src);
+      if (absolute == null) continue;
+      final bytes = _inlineImageBytes[absolute];
+      if (bytes == null) continue;
+      final name = _uniqueName(
+        DocumentRepository.safeFileName(
+          'imagen-$index${p.extension(absolute)}',
+          fallback: 'imagen-$index.png',
+        ),
+        used,
+      );
+      used.add(name);
+      await File(p.join(dir.path, name)).writeAsBytes(bytes, flush: true);
+      // Forward slashes: these are read as links by Markdown and HTML, where a
+      // Windows separator would be an escape character rather than a path.
+      out[src] = '$folderName/$name';
+      index++;
+    }
+    return out;
+  }
+
+  Future<List<_ExportedAttachment>> _writeAttachments(
+    Note note,
+    File mainFile,
+    Set<String> used,
+  ) async {
+    if (_documents == null || note.attachments.isEmpty) {
+      return const [];
+    }
+    final folderName = _sidecarFolderName(mainFile);
+    final attachDir = await _sidecarDirectory(mainFile);
+
     final results = <_ExportedAttachment>[];
     for (final attachment in note.attachments) {
       final safeName = _uniqueName(_safeAttachmentName(attachment), used);
@@ -369,18 +441,19 @@ class NoteExportRepository {
     return buffer.toString();
   }
 
-  String _toMarkdown(String body) {
+  String _toMarkdown(String body, Map<String, String> sidecarImages) {
     final ops = _deltaOps(body);
     final buffer = StringBuffer();
     var atLineStart = true;
     for (final op in ops) {
       final insert = op['insert'];
       if (insert is Map && insert['image'] is String) {
-        final dataUrl = _imageToDataUrlForExport(insert['image'] as String);
-        if (dataUrl != null) {
-          buffer.write('![]($dataUrl)\n\n');
+        final src = insert['image'] as String;
+        final sidecar = sidecarImages[src];
+        if (sidecar != null) {
+          buffer.write('![](${Uri.encodeFull(sidecar)})\n\n');
         } else {
-          buffer.write('![](${insert['image']})\n\n');
+          buffer.write('![](${_imageToDataUrlForExport(src) ?? src})\n\n');
         }
         atLineStart = true;
         continue;
@@ -854,8 +927,33 @@ class NoteExportRepository {
     }
   }
 
-  String _toHtml(String body) {
-    final ops = _deltaOpsWithDataUrlImages(body);
+  /// Same shape as [_deltaOpsWithDataUrlImages], but pointing at the files
+  /// written beside the document instead of carrying them inline.
+  List<Map<String, dynamic>> _deltaOpsWithSidecarImages(
+    String body,
+    Map<String, String> sidecarImages,
+  ) {
+    final out = <Map<String, dynamic>>[];
+    for (final op in _deltaOps(body)) {
+      final insert = op['insert'];
+      if (insert is Map && insert['image'] is String) {
+        final replacement = sidecarImages[insert['image'] as String];
+        if (replacement != null) {
+          final m = Map<String, dynamic>.from(op);
+          m['insert'] = <String, String>{'image': replacement};
+          out.add(m);
+          continue;
+        }
+      }
+      out.add(Map<String, dynamic>.from(op));
+    }
+    return out;
+  }
+
+  String _toHtml(String body, Map<String, String> sidecarImages) {
+    final ops = sidecarImages.isEmpty
+        ? _deltaOpsWithDataUrlImages(body)
+        : _deltaOpsWithSidecarImages(body, sidecarImages);
     if (ops.isEmpty) return '';
     final converter = QuillDeltaToHtmlConverter(ops);
     return converter.convert();
@@ -879,6 +977,7 @@ class NoteExportRepository {
     Note note,
     NoteExportFormat format,
     List<_ExportedAttachment> attachments,
+    Map<String, String> sidecarImages,
     AppStrings strings,
   ) {
     switch (format) {
@@ -901,9 +1000,9 @@ class NoteExportRepository {
         final attachSection = attachments.isEmpty
             ? ''
             : '\n\n## ${strings.attachments}\n${attachments.map((a) => '- [${a.originalName}](${Uri.encodeFull(a.relativePath)})').join('\n')}\n';
-        return '# ${note.title}\n\n${_toMarkdown(note.body)}$tags$attachSection\n';
+        return '# ${note.title}\n\n${_toMarkdown(note.body, sidecarImages)}$tags$attachSection\n';
       case NoteExportFormat.json:
-        final delta = _deltaOps(note.body);
+        final delta = _deltaOpsWithSidecarImages(note.body, sidecarImages);
         return const JsonEncoder.withIndent('  ').convert({
           'title': note.title,
           'tags': note.tags,
@@ -916,7 +1015,7 @@ class NoteExportRepository {
           ],
         });
       case NoteExportFormat.html:
-        final body = _toHtml(note.body);
+        final body = _toHtml(note.body, sidecarImages);
         final attachSection = attachments.isEmpty
             ? ''
             : '''

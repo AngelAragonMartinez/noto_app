@@ -62,6 +62,40 @@ void main() {
     return result.file.readAsStringSync();
   }
 
+  // A coloured heading: colour and highlight are inline attributes, the heading
+  // is a block attribute on the newline. They are independent, so a title keeps
+  // its colour — but nothing here covered the combination.
+  Note headingNote() {
+    final now = DateTime.utc(2026, 9, 1);
+    return Note(
+      id: 'n2',
+      title: 'Titulo',
+      body: jsonEncode([
+        {
+          'insert': 'ENCABEZADO',
+          'attributes': {'color': '#ff0000', 'background': '#ffff00'},
+        },
+        {
+          'insert': '\n',
+          'attributes': {'header': 1},
+        },
+      ]),
+      createdAt: now,
+      updatedAt: now,
+    );
+  }
+
+  Future<String> exportHeadingTo(NoteExportFormat format) async {
+    final result = await NoteExportRepository(paths: _TempPaths(root)).saveAt(
+      headingNote(),
+      p.join(root.path, 'heading'),
+      format,
+      strings: AppStrings(const Locale('en')),
+      includeAttachments: false,
+    );
+    return result.file.readAsStringSync();
+  }
+
   group('colour survives export', () {
     test('RTF declares both colours and applies them', () async {
       final rtf = await exportTo(NoteExportFormat.rtf);
@@ -118,6 +152,41 @@ void main() {
       expect(NoteExportRepository.normaliseColor('chartreuse'), isNull);
       expect(NoteExportRepository.normaliseColor('#12345'), isNull);
       expect(NoteExportRepository.normaliseColor('rgb(300,0,0)'), isNull);
+    });
+  });
+
+  group('a coloured heading keeps its colour', () {
+    test('Markdown', () async {
+      final md = await exportHeadingTo(NoteExportFormat.markdown);
+
+      expect(md, contains('# '), reason: 'still a heading');
+      expect(md, contains('color:#ff0000'));
+      expect(md, contains('background-color:#ffff00'));
+    });
+
+    test('HTML', () async {
+      final html = (await exportHeadingTo(NoteExportFormat.html)).toLowerCase();
+
+      expect(html, contains('<h1'), reason: 'still a heading');
+      expect(html, contains('ff0000'));
+      expect(html, contains('ffff00'));
+    });
+
+    test('RTF', () async {
+      final rtf = await exportHeadingTo(NoteExportFormat.rtf);
+
+      expect(rtf, contains(r'\red255\green0\blue0'));
+      expect(rtf, contains(r'\red255\green255\blue0'));
+      expect(rtf.contains(RegExp(r'\\cf[2-9]')), isTrue, reason: rtf);
+      expect(rtf.contains(RegExp(r'\\highlight[2-9]')), isTrue, reason: rtf);
+    });
+
+    test('JSON', () async {
+      final json = await exportHeadingTo(NoteExportFormat.json);
+
+      expect(json, contains('"color"'));
+      expect(json, contains('"background"'));
+      expect(json, contains('"header"'));
     });
   });
 }

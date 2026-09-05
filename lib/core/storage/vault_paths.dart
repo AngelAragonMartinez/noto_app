@@ -35,6 +35,20 @@ class VaultPaths {
     return File(p.join(directory.path, vaultName));
   }
 
+  /// Where the Save dialog should open.
+  ///
+  /// Deliberately not [exportsDirectory]: that sits under app data, which the
+  /// purge treats as Noto's own. A save dialog must never default to a folder
+  /// the app empties, or saving without navigating away hands your file to the
+  /// next cleanup.
+  Future<Directory> initialSaveDirectory() async {
+    try {
+      return await getApplicationDocumentsDirectory();
+    } catch (_) {
+      return appDirectory();
+    }
+  }
+
   Future<Directory> exportsDirectory() async {
     final directory = Directory(p.join((await appDirectory()).path, 'exports'));
     if (!directory.existsSync()) {

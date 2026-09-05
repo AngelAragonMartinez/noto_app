@@ -1,5 +1,18 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:notes_app/core/storage/vault_paths.dart';
 import 'package:notes_app/features/documents/data/document_repository.dart';
+import 'package:path/path.dart' as p;
+
+class _TempPaths extends VaultPaths {
+  _TempPaths(this.root);
+
+  final Directory root;
+
+  @override
+  Future<Directory> appDirectory() async => root;
+}
 
 void main() {
   group('DocumentRepository.safeFileName', () {
@@ -52,6 +65,56 @@ void main() {
       final result = sanitize(long);
       expect(result.length, lessThanOrEqualTo(120));
       expect(result, endsWith('.pdf'));
+    });
+  });
+
+  group('tryDeleteUnderAppData stays inside app data', () {
+    late Directory appData;
+    late Directory elsewhere;
+
+    setUp(() {
+      appData = Directory.systemTemp.createTempSync('noto_appdata_');
+      elsewhere = Directory.systemTemp.createTempSync('noto_downloads_');
+    });
+
+    tearDown(() {
+      for (final d in [appData, elsewhere]) {
+        if (d.existsSync()) d.deleteSync(recursive: true);
+      }
+    });
+
+    DocumentRepository repo() => DocumentRepository(paths: _TempPaths(appData));
+
+    // Dropping a note from Noto runs this over the note's export path. A user
+    // reported the file they had saved to their Downloads folder disappearing
+    // with the note, which this boundary is supposed to make impossible.
+    test('leaves a file the user saved outside Noto', () async {
+      final saved = File(p.join(elsewhere.path, 'nota.md'))
+        ..writeAsStringSync('# Mi nota');
+
+      await repo().tryDeleteUnderAppData(saved.path);
+
+      expect(saved.existsSync(), isTrue, reason: saved.path);
+    });
+
+    test('leaves a sibling directory that merely shares a prefix', () async {
+      final sibling = Directory('${appData.path}-otro')..createSync();
+      final saved = File(p.join(sibling.path, 'nota.md'))
+        ..writeAsStringSync('# Mi nota');
+
+      await repo().tryDeleteUnderAppData(saved.path);
+
+      expect(saved.existsSync(), isTrue);
+      sibling.deleteSync(recursive: true);
+    });
+
+    test('still deletes Noto own copies inside app data', () async {
+      final managed = File(p.join(appData.path, 'copia.md'))
+        ..writeAsStringSync('# Copia');
+
+      await repo().tryDeleteUnderAppData(managed.path);
+
+      expect(managed.existsSync(), isFalse);
     });
   });
 }
