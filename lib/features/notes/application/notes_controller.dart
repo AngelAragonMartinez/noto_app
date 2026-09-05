@@ -566,7 +566,7 @@ class NotesController extends StateNotifier<NotesState> {
     });
   }
 
-  Future<void> exportSelected({NoteExportFormat? preferredFormat}) async {
+  Future<void> exportSelected({required NoteExportFormat format}) async {
     final note = state.selectedNote;
     if (note == null) {
       return;
@@ -584,7 +584,7 @@ class NotesController extends StateNotifier<NotesState> {
         );
         final result = await _exportRepository.export(
           toExport,
-          preferredFormat: preferredFormat,
+            format: format,
           strings: _ref.read(appStringsProvider),
           embedImages: _ref.read(embedImagesProvider),
         );
@@ -598,14 +598,18 @@ class NotesController extends StateNotifier<NotesState> {
     });
   }
 
-  Future<void> saveSelected() async {
+  /// Returns false when it cannot tell what format to write.
+  ///
+  /// The caller decides what to do about that, because it has a screen to ask
+  /// on. This used to fall through to the export dialog with no format, and
+  /// that is the path that guessed and wrote plain text into a .md.
+  Future<bool> saveSelected() async {
     final note = state.selectedNote;
-    if (note == null) return;
+    if (note == null) return false;
     final path = note.lastExportPath;
     final formatName = note.lastExportFormat;
     if (path == null || formatName == null) {
-      await exportSelected();
-      return;
+      return false;
     }
     // A stored format name that matches nothing used to fall back to txt, which
     // then wrote plain text into whatever the path was called: a .pdf or .md
@@ -623,8 +627,7 @@ class NotesController extends StateNotifier<NotesState> {
       p.extension(path).replaceFirst('.', '').toLowerCase(),
     );
     if (resolved == null) {
-      await exportSelected();
-      return;
+      return false;
     }
     final format = resolved;
     await _guard(() async {
@@ -649,6 +652,7 @@ class NotesController extends StateNotifier<NotesState> {
         _ref.read(appStringsProvider).savedToPath(result.file.path),
       );
     });
+    return true;
   }
 
   Future<void> _rememberLastExport(Note note, NoteExportResult result) async {

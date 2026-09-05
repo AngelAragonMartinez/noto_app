@@ -37,6 +37,29 @@ enum NoteExportFormat {
   }
 }
 
+/// The file types the save dialog offers.
+///
+/// One type when a format was asked for by name, every type otherwise. The two
+/// were briefly conflated with the remembered default, which narrowed the
+/// dialog to whatever the note was saved as last time: save once as text and
+/// text was the only thing ever offered again.
+List<XTypeGroup> exportTypeGroups(
+  NoteExportFormat? preferredFormat,
+  AppStrings strings,
+) {
+  final offered = preferredFormat != null
+      ? [preferredFormat]
+      : NoteExportFormat.values;
+  return [
+    for (final format in offered)
+      XTypeGroup(
+        label: strings.exportFormatLabel(format),
+        extensions: [format.extension],
+      ),
+  ];
+}
+
+
 class NoteExportRepository {
   NoteExportRepository({
     VaultPaths? paths,
@@ -49,7 +72,13 @@ class NoteExportRepository {
   Future<NoteExportResult> export(
     Note note, {
     required AppStrings strings,
-    NoteExportFormat? preferredFormat,
+    /// Settled by the caller before the dialog opens.
+    ///
+    /// The desktop portals do not report which type was picked in their own
+    /// dropdown, so the only thing left to read was the extension of the name
+    /// we suggested: choosing Markdown there wrote plain text into a .txt.
+    /// Requiring it here means no route reaches the dialog without knowing.
+    required NoteExportFormat format,
     bool embedImages = false,
   }) async {
     final directory = await _paths.initialSaveDirectory();
@@ -58,25 +87,11 @@ class NoteExportRepository {
 
     // If the app picked a format from the Save-as menu, the native dialog
     // only offers that type so the extension always matches.
-    final groups = preferredFormat != null
-        ? <XTypeGroup>[
-            XTypeGroup(
-              label: strings.exportFormatLabel(preferredFormat),
-              extensions: [preferredFormat.extension],
-            ),
-          ]
-        : <XTypeGroup>[
-            for (final format in NoteExportFormat.values)
-              XTypeGroup(
-                label: strings.exportFormatLabel(format),
-                extensions: [format.extension],
-              ),
-          ];
-    final defaultFormat = preferredFormat ?? NoteExportFormat.txt;
+    final groups = exportTypeGroups(format, strings);
     final location = await getSaveLocation(
       acceptedTypeGroups: groups,
       initialDirectory: directory.path,
-      suggestedName: '$safeTitle.${defaultFormat.extension}',
+      suggestedName: '$safeTitle.${format.extension}',
       confirmButtonText: strings.save,
       canCreateDirectories: true,
     );
@@ -84,8 +99,7 @@ class NoteExportRepository {
       throw const ExportCancelledException();
     }
 
-    // Menu-chosen format wins; otherwise infer from filter or filename.
-    final format = preferredFormat ?? _detectFormat(location, defaultFormat);
+    // Nothing to work out: the caller settled the format before we opened.
     final file = File(_ensureExtension(location.path, format.extension));
     return _writeNote(
       note,
@@ -287,26 +301,6 @@ class NoteExportRepository {
     return '$base-$i$ext';
   }
 
-  NoteExportFormat _detectFormat(
-    FileSaveLocation location,
-    NoteExportFormat fallback,
-  ) {
-    final activeExt = location.activeFilter?.extensions?.firstOrNull;
-    if (activeExt != null) {
-      for (final format in NoteExportFormat.values) {
-        if (format.extension == activeExt) {
-          return format;
-        }
-      }
-    }
-    final ext = p.extension(location.path).replaceFirst('.', '').toLowerCase();
-    for (final format in NoteExportFormat.values) {
-      if (format.extension == ext) {
-        return format;
-      }
-    }
-    return fallback;
-  }
 
   Future<String> storagePath() async => (await _paths.appDirectory()).path;
 

@@ -7,13 +7,10 @@ import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:intl/intl.dart';
-import 'package:path/path.dart' as p;
 
 import '../../../app/app_strings.dart';
 import '../../../app/document_logo.dart';
 import '../../../app/locale_controller.dart';
-import '../../../core/security/app_lock_preference.dart';
-import '../../../core/security/security_providers.dart';
 import '../application/notes_controller.dart';
 import '../data/note_export_repository.dart';
 import '../../../app/ui_preferences.dart';
@@ -196,19 +193,12 @@ class NotesHomePage extends ConsumerWidget {
         // its shortcut written beside it. What is left needs a dialog of its
         // own before it can move.
         actions: [
-          if (!state.showTrash)
-            _OpenImportMenu(
-              strings: s,
-              onAfterPick: () {
-                if (MediaQuery.sizeOf(context).width < 720) {
-                  sidebarController.state = false;
-                }
-              },
-            ),
-          // Also in the View menu with their shortcuts. Word and LibreOffice
-          // duplicate the common ones as icons too, and burying these made them
-          // feel gone. Both routes call the same dispatcher, so there is one
-          // behaviour rather than two that can drift.
+          // Open, the startup lock and the note location moved into the menus,
+          // where each shows what it does in words. They were the last three
+          // icons whose meaning you had to already know.
+          // Also in the menus with their shortcuts. The common ones stay
+          // reachable in one click; what left were the three whose meaning you
+          // had to already know.
           IconButton(
             tooltip: NotoCommand.toggleLanguage.label(s),
             onPressed: () => unawaited(
@@ -216,8 +206,6 @@ class NotesHomePage extends ConsumerWidget {
             icon: const Icon(Icons.translate_rounded),
           ),
           IconButton(
-            // Says which mode is on and what the next tap does, so the cycle is
-            // discoverable without opening the menu.
             tooltip: switch (ref.watch(themeChoiceProvider)) {
               NotoTheme.system => s.themeTooltipSystem,
               NotoTheme.light => s.themeTooltipLight,
@@ -228,15 +216,6 @@ class NotesHomePage extends ConsumerWidget {
                 unawaited(runNotoCommand(context, ref, NotoCommand.cycleTheme)),
             icon: const Icon(Icons.brightness_6_outlined),
           ),
-          IconButton(
-            tooltip: NotoCommand.newNote.label(s),
-            onPressed: canRunNotoCommand(ref, NotoCommand.newNote)
-                ? () => unawaited(runNotoCommand(context, ref, NotoCommand.newNote))
-                : null,
-            icon: const Icon(Icons.edit_note_rounded),
-          ),
-          const _AppLockToggle(),
-          const _NoteLocationButton(),
           const SizedBox(width: 6),
         ],
       ),
@@ -350,10 +329,6 @@ class NotesHomePage extends ConsumerWidget {
                     note: state.selectedNote,
                     showTrash: state.showTrash,
                     onChanged: controller.updateDraft,
-                    onAttach: controller.attachDocument,
-                    onExport: controller.exportSelected,
-                    onQuickSave: controller.saveSelected,
-                    onMoveToTrash: controller.moveSelectedToTrash,
                     onRestore: controller.restoreSelected,
                     onPermanentlyDelete: controller.permanentlyDeleteSelected,
                     onCreate: createAndFocus,
@@ -413,102 +388,8 @@ class NotesHomePage extends ConsumerWidget {
   }
 }
 
-const _kOpenPickSentinel = '__open_pick__';
 
-class _OpenImportMenu extends ConsumerStatefulWidget {
-  const _OpenImportMenu({
-    required this.strings,
-    required this.onAfterPick,
-  });
 
-  final AppStrings strings;
-  final VoidCallback onAfterPick;
-
-  @override
-  ConsumerState<_OpenImportMenu> createState() => _OpenImportMenuState();
-}
-
-class _OpenImportMenuState extends ConsumerState<_OpenImportMenu> {
-  List<String> _recent = [];
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return PopupMenuButton<String>(
-      tooltip: widget.strings.openMenu,
-      icon: const Icon(Icons.folder_open_outlined),
-      onOpened: () async {
-        final paths =
-            await ref.read(recentImportsStoreProvider).readPaths();
-        if (mounted) {
-          setState(() => _recent = paths);
-        }
-      },
-      itemBuilder: (context) => [
-        PopupMenuItem<String>(
-          value: _kOpenPickSentinel,
-          child: ListTile(
-            leading: const Icon(Icons.description_outlined, size: 20),
-            title: Text(widget.strings.openFile),
-            contentPadding: EdgeInsets.zero,
-            horizontalTitleGap: 8,
-          ),
-        ),
-        const PopupMenuDivider(),
-        if (_recent.isEmpty)
-          PopupMenuItem<String>(
-            enabled: false,
-            child: Text(
-              widget.strings.noRecentFiles,
-              style: TextStyle(
-                fontSize: 12,
-                color: colors.onSurfaceVariant,
-              ),
-            ),
-          )
-        else
-          ..._recent.map(
-            (path) => PopupMenuItem<String>(
-              value: path,
-              child: ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                title: Text(
-                  p.basename(path),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                subtitle: Text(
-                  path,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: colors.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
-      onSelected: (value) async {
-        final cur = ref.read(notesControllerProvider).selectedNote;
-        if (!await confirmDiscardIfNeeded(context, ref, cur)) {
-          return;
-        }
-        if (!mounted) return;
-        if (value == _kOpenPickSentinel) {
-          await ref.read(notesControllerProvider.notifier).importNoteFromFile();
-        } else {
-          await ref
-              .read(notesControllerProvider.notifier)
-              .importNoteFromPath(value);
-        }
-        widget.onAfterPick();
-      },
-    );
-  }
-}
 
 class _Banner extends StatelessWidget {
   const _Banner({
@@ -954,6 +835,28 @@ class _NoteTile extends StatelessWidget {
   }
 }
 
+/// Letter colour that keeps text readable on [rawHighlight], or null to leave
+/// it alone.
+///
+/// A highlight is chosen for the page, not for the theme. In dark mode the text
+/// is near-white, so a pale yellow highlight arrived under near-white letters
+/// and the words vanished. Light mode has the same problem upside down.
+///
+/// It only steps in when the two fall on the same side. A dark highlight in
+/// light mode, or a bright one in dark mode, already reads fine and keeps
+/// whatever colour the text was given.
+@visibleForTesting
+Color? textColourOnHighlight(String rawHighlight, Brightness themeBrightness) {
+  final hex = NoteExportRepository.normaliseColor(rawHighlight);
+  if (hex == null) return null;
+  final highlight = Color(0xFF000000 | int.parse(hex.substring(1), radix: 16));
+  final highlightIsLight = highlight.computeLuminance() > 0.45;
+  final lettersAreLight = themeBrightness == Brightness.dark;
+  if (highlightIsLight != lettersAreLight) return null;
+  return highlightIsLight ? const Color(0xFF1C1C1E) : const Color(0xFFF5F5F7);
+}
+
+
 /// Heading style for the editor, carrying size and weight but no colour.
 ///
 /// The built-in heading styles pin a colour, and a pinned colour wins over the
@@ -983,10 +886,6 @@ class NoteEditorPane extends ConsumerStatefulWidget {
     required this.note,
     required this.showTrash,
     required this.onChanged,
-    required this.onAttach,
-    required this.onExport,
-    required this.onQuickSave,
-    required this.onMoveToTrash,
     required this.onRestore,
     required this.onPermanentlyDelete,
     required this.onCreate,
@@ -1002,10 +901,6 @@ class NoteEditorPane extends ConsumerStatefulWidget {
     String? body,
     List<String>? tags,
   }) onChanged;
-  final Future<void> Function() onAttach;
-  final Future<void> Function({NoteExportFormat? preferredFormat}) onExport;
-  final Future<void> Function() onQuickSave;
-  final Future<void> Function() onMoveToTrash;
   final Future<void> Function() onRestore;
   final Future<void> Function() onPermanentlyDelete;
   final Future<void> Function() onCreate;
@@ -1388,13 +1283,6 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
         _EditorToolbar(
           strings: s,
           showTrash: widget.showTrash,
-          quickSaveLabel: s.save,
-          canQuickSave: note.lastExportPath != null,
-          onAttach: widget.onAttach,
-          onExport: widget.onExport,
-          onQuickSave: widget.onQuickSave,
-          onToggleFind: _toggleFind,
-          onMoveToTrash: widget.onMoveToTrash,
           onRestore: widget.onRestore,
           onPermanentlyDelete: widget.onPermanentlyDelete,
           onBack: widget.onBack,
@@ -1526,6 +1414,20 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
                           expands: true,
                           scrollable: true,
                           customStyles: _buildEditorStyles(context),
+                          customStyleBuilder: (attribute) {
+                            if (attribute.key != Attribute.background.key) {
+                              return const TextStyle();
+                            }
+                            final value = attribute.value;
+                            if (value is! String) return const TextStyle();
+                            final colour = textColourOnHighlight(
+                              value,
+                              Theme.of(context).brightness,
+                            );
+                            return colour == null
+                                ? const TextStyle()
+                                : TextStyle(color: colour);
+                          },
                           embedBuilders: [
                             LocalFileImageEmbedBuilder(
                               documents:
@@ -1829,13 +1731,6 @@ class _EditorToolbar extends StatelessWidget {
   const _EditorToolbar({
     required this.strings,
     required this.showTrash,
-    required this.quickSaveLabel,
-    required this.canQuickSave,
-    required this.onAttach,
-    required this.onExport,
-    required this.onQuickSave,
-    required this.onToggleFind,
-    required this.onMoveToTrash,
     required this.onRestore,
     required this.onPermanentlyDelete,
     required this.onBack,
@@ -1843,13 +1738,6 @@ class _EditorToolbar extends StatelessWidget {
 
   final AppStrings strings;
   final bool showTrash;
-  final String quickSaveLabel;
-  final bool canQuickSave;
-  final Future<void> Function() onAttach;
-  final Future<void> Function({NoteExportFormat? preferredFormat}) onExport;
-  final Future<void> Function() onQuickSave;
-  final VoidCallback onToggleFind;
-  final Future<void> Function() onMoveToTrash;
   final Future<void> Function() onRestore;
   final Future<void> Function() onPermanentlyDelete;
   final VoidCallback? onBack;
@@ -1880,11 +1768,8 @@ class _EditorToolbar extends StatelessWidget {
           // empty band across the middle of the strip on a large window.
           const SizedBox(width: 8),
           if (!showTrash) ...[
-            IconButton(
-              tooltip: strings.findReplace,
-              onPressed: onToggleFind,
-              icon: const Icon(Icons.search_rounded, size: 20),
-            ),
+            // Find is Ctrl+F and sits in the Edit menu. A magnifier that cannot
+            // be hidden was one more permanent icon for something already reachable.
             // Attach, Save, Save as and Move to trash live in the File menu with
             // their shortcuts. Repeating them here only crowded the strip.
           ] else ...[
@@ -2237,139 +2122,11 @@ class _FindReplaceBar extends StatelessWidget {
 /// Shown disabled, with an explanation, when the device has no Windows Hello
 /// or equivalent — the lock cannot engage there, and a toggle that silently
 /// does nothing is worse than one that says why.
-class _AppLockToggle extends ConsumerStatefulWidget {
-  const _AppLockToggle();
 
-  @override
-  ConsumerState<_AppLockToggle> createState() => _AppLockToggleState();
-}
-
-class _AppLockToggleState extends ConsumerState<_AppLockToggle> {
-  bool? _available;
-
-  @override
-  void initState() {
-    super.initState();
-    unawaited(_checkAvailability());
-  }
-
-  Future<void> _checkAvailability() async {
-    final available =
-        await ref.read(appLockControllerProvider).canUseBiometrics();
-    if (!mounted) return;
-    setState(() => _available = available);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final s = ref.watch(appStringsProvider);
-    final enabled = ref.watch(appLockEnabledProvider);
-    final available = _available;
-
-    if (available == null) {
-      return const SizedBox(width: 48);
-    }
-
-    return IconButton(
-      tooltip: available
-          ? (enabled ? s.appLockToggleOn : s.appLockToggleOff)
-          : s.appLockUnavailable,
-      // Stays pressable when the lock is unavailable. A disabled button with
-      // only a tooltip reads as broken: nothing happens on click and the
-      // explanation is behind a hover most people never perform.
-      onPressed: () {
-        if (!available) {
-          _explainUnavailable();
-          return;
-        }
-        ref.read(appLockEnabledProvider.notifier).toggle();
-      },
-      icon: Icon(
-        enabled && available ? Icons.lock_rounded : Icons.lock_open_rounded,
-      ),
-    );
-  }
-
-  void _explainUnavailable() {
-    final s = ref.read(appStringsProvider);
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.lock_outline_rounded),
-        title: Text(s.appLockUnavailableTitle),
-        content: Text(s.appLockUnavailableBody),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(s.aboutClose),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 /// Shows where the open note lives, in the same bar that confirms a save.
 ///
 /// Pressing again clears it. The message is pinned rather than timed: a path
 /// is there to be read and written down, which takes longer than the couple of
 /// seconds a save confirmation needs.
-class _NoteLocationButton extends ConsumerStatefulWidget {
-  const _NoteLocationButton();
 
-  @override
-  ConsumerState<_NoteLocationButton> createState() =>
-      _NoteLocationButtonState();
-}
-
-class _NoteLocationButtonState extends ConsumerState<_NoteLocationButton> {
-  bool _showing = false;
-
-  Future<void> _toggle() async {
-    final controller = ref.read(notesControllerProvider.notifier);
-
-    if (_showing) {
-      controller.clearInfo();
-      setState(() => _showing = false);
-      return;
-    }
-
-    final s = ref.read(appStringsProvider);
-    final note = ref.read(notesControllerProvider).selectedNote;
-    final exported = note?.lastExportPath;
-    final hasFile = exported != null && exported.trim().isNotEmpty;
-
-    final location = await controller.currentNoteLocation();
-    if (!mounted) return;
-
-    controller.showPinnedInfo(
-      '${hasFile ? s.noteLocationFileLabel : s.noteLocationVaultLabel} '
-      '$location',
-    );
-    setState(() => _showing = true);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final s = ref.watch(appStringsProvider);
-
-    // Anything else clearing the bar — a save, switching notes — leaves this
-    // button showing "hide" for a message that is gone. Follow the bar.
-    final info = ref.watch(notesControllerProvider).info;
-    if (_showing && info == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _showing) setState(() => _showing = false);
-      });
-    }
-
-    return IconButton(
-      tooltip: _showing ? s.noteLocationHide : s.noteLocationTooltip,
-      onPressed: _toggle,
-      icon: Icon(
-        _showing
-            ? Icons.folder_open_rounded
-            : Icons.folder_outlined,
-      ),
-    );
-  }
-}

@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
@@ -9,7 +12,10 @@ import '../../../app/locale_controller.dart';
 import '../../../app/theme_controller.dart';
 import '../../../app/ui_preferences.dart';
 import '../../about/about_dialog.dart';
+import '../../../core/security/app_lock_preference.dart';
+import '../../../core/security/security_providers.dart';
 import '../application/notes_controller.dart';
+import '../data/note_export_repository.dart';
 import 'noto_commands.dart';
 import 'shortcuts_dialog.dart';
 
@@ -34,6 +40,15 @@ final notesSearchFocusProvider = Provider<FocusNode>((ref) {
   return node;
 });
 
+/// Files opened before, newest first.
+///
+/// Dynamic data rather than a fixed command, so it hangs off the File menu
+/// instead of going in the command table: there is no shortcut for "the third
+/// file I opened last week", and the table is for things that have one.
+final recentImportsProvider = FutureProvider<List<String>>((ref) {
+  return ref.read(recentImportsStoreProvider).readPaths();
+});
+
 /// Carries a command from a key press to the one place that runs it.
 class NotoCommandIntent extends Intent {
   const NotoCommandIntent(this.command);
@@ -55,10 +70,12 @@ bool canRunNotoCommand(WidgetRef ref, NotoCommand command) {
     case NotoCommand.toggleSidebar:
     case NotoCommand.cycleTheme:
     case NotoCommand.toggleLanguage:
+    case NotoCommand.appLock:
     case NotoCommand.shortcutsGuide:
     case NotoCommand.about:
     case NotoCommand.quit:
       return true;
+    case NotoCommand.noteLocation:
     case NotoCommand.save:
     case NotoCommand.saveAs:
       return hasNote;
@@ -106,9 +123,25 @@ Future<void> runNotoCommand(
     case NotoCommand.importNote:
       await notes.importNoteFromFile();
     case NotoCommand.save:
-      await notes.saveSelected();
+      // Save writes over the file this note came from. With no such file, or
+      // one whose format no longer means anything, there is nothing to write
+      // over and the format has to be settled the same way Save as settles it.
+      if (await notes.saveSelected()) return;
+      if (!context.mounted) return;
+      final forNewFile = await _askExportFormat(context, s);
+      if (forNewFile == null) return;
+      await notes.exportSelected(format: forNewFile);
     case NotoCommand.saveAs:
-      await notes.exportSelected();
+      // Asks here rather than leaving it to the dialog's type dropdown. On the
+      // desktop portals the chosen filter is not reported back, so the only
+      // thing left to read is the extension of the name we suggested
+      // ourselves: picking Markdown there changed nothing and the note was
+      // written as text. Settling it first means the dialog is told what to
+      // save and never has to be asked.
+      if (!context.mounted) return;
+      final chosen = await _askExportFormat(context, s);
+      if (chosen == null) return;
+      await notes.exportSelected(format: chosen);
     case NotoCommand.attach:
       await notes.attachDocument();
     case NotoCommand.moveToTrash:
@@ -128,6 +161,25 @@ Future<void> runNotoCommand(
       await ref.read(themeChoiceProvider.notifier).cycle();
     case NotoCommand.toggleLanguage:
       await ref.read(localeControllerProvider.notifier).toggleEnglishSpanish();
+    case NotoCommand.appLock:
+      // Explains itself rather than sitting there dead. A disabled entry with
+      // only a tooltip reads as broken: nothing happens on click, and the
+      // reason hides behind a hover most people never perform.
+      final available =
+          await ref.read(appLockControllerProvider).canUseBiometrics();
+      if (!available) {
+        if (context.mounted) await _explainLockUnavailable(context, s);
+        return;
+      }
+      ref.read(appLockEnabledProvider.notifier).toggle();
+    case NotoCommand.noteLocation:
+      final where = await notes.currentNoteLocation();
+      final note = ref.read(notesControllerProvider).selectedNote;
+      final exported = note?.lastExportPath;
+      final asFile = exported != null && exported.trim().isNotEmpty;
+      notes.showPinnedInfo(
+        '${asFile ? s.noteLocationFileLabel : s.noteLocationVaultLabel} $where',
+      );
     case NotoCommand.undo:
       editor!.undo();
     case NotoCommand.redo:
@@ -155,6 +207,44 @@ Future<void> runNotoCommand(
   }
 }
 
+/// Which format to save as, settled before the system dialog opens.
+Future<NoteExportFormat?> _askExportFormat(BuildContext context, AppStrings s) {
+  return showDialog<NoteExportFormat>(
+    context: context,
+    builder: (ctx) => SimpleDialog(
+      title: Text(s.saveAs),
+      children: [
+        for (final format in NoteExportFormat.values)
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(ctx).pop(format),
+            child: Text(s.exportFormatLabel(format)),
+          ),
+        SimpleDialogOption(
+          onPressed: () => Navigator.of(ctx).pop(),
+          child: Text(s.cancel),
+        ),
+      ],
+    ),
+  );
+}
+
+Future<void> _explainLockUnavailable(BuildContext context, AppStrings s) {
+  return showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      icon: const Icon(Icons.lock_outline_rounded),
+      title: Text(s.appLockUnavailableTitle),
+      content: Text(s.appLockUnavailableBody),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(),
+          child: Text(s.aboutClose),
+        ),
+      ],
+    ),
+  );
+}
+
 /// Shortcut bindings for every command that has one, straight from the table.
 Map<ShortcutActivator, Intent> notoShortcuts() {
   return {
@@ -162,6 +252,55 @@ Map<ShortcutActivator, Intent> notoShortcuts() {
       if (command.shortcut != null)
         command.shortcut!: NotoCommandIntent(command),
   };
+}
+
+/// Save as, with the format chosen here rather than in the system dialog.
+///
+/// Picking the type in the dialog's own dropdown was not reliable: the portal
+/// does not always report which filter is active, and the suggested name
+/// carried .txt, so choosing Markdown there could still write plain text into a
+/// .txt file. Choosing here means the dialog is offered a single type and the
+/// extension always matches what was asked for.
+Widget _saveAsSubmenu(BuildContext context, WidgetRef ref, AppStrings s) {
+  final enabled = canRunNotoCommand(ref, NotoCommand.saveAs);
+  return SubmenuButton(
+    menuChildren: [
+      for (final format in NoteExportFormat.values)
+        MenuItemButton(
+          onPressed: enabled
+              ? () => unawaited(
+                    ref
+                        .read(notesControllerProvider.notifier)
+                        .exportSelected(format: format),
+                  )
+              : null,
+          child: Text(s.exportFormatLabel(format)),
+        ),
+    ],
+    child: Text(s.saveAs),
+  );
+}
+
+/// Files opened before, or a dash when there are none yet.
+Widget _recentSubmenu(WidgetRef ref, AppStrings s) {
+  final recent = ref.watch(recentImportsProvider).asData?.value ?? const <String>[];
+  return SubmenuButton(
+    menuChildren: [
+      if (recent.isEmpty)
+        const MenuItemButton(onPressed: null, child: Text('-'))
+      else
+        for (final path in recent)
+          MenuItemButton(
+            onPressed: () => unawaited(
+              ref
+                  .read(notesControllerProvider.notifier)
+                  .importNoteFromPath(path),
+            ),
+            child: Text(p.basename(path)),
+          ),
+    ],
+    child: Text(s.menuRecent),
+  );
 }
 
 /// A tick beside the options that are either on or off, so their state is
@@ -211,7 +350,14 @@ class NotoMenuBar extends ConsumerWidget {
                       : null,
                   child: Text(command.label(s)),
                 ),
+              if (menu == NotoMenu.file) _saveAsSubmenu(context, ref, s),
+              if (menu == NotoMenu.file) _recentSubmenu(ref, s),
             ],
+            onOpen: menu == NotoMenu.file
+                // Re-read on open: a file imported since the last look would
+                // otherwise be missing from a list that claims to be recent.
+                ? () => ref.invalidate(recentImportsProvider)
+                : null,
             child: Text(menu.label(s)),
           ),
       ],
