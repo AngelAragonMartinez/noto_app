@@ -329,10 +329,6 @@ class NotesHomePage extends ConsumerWidget {
                     note: state.selectedNote,
                     showTrash: state.showTrash,
                     onChanged: controller.updateDraft,
-                    onAttach: controller.attachDocument,
-                    onExport: controller.exportSelected,
-                    onQuickSave: controller.saveSelected,
-                    onMoveToTrash: controller.moveSelectedToTrash,
                     onRestore: controller.restoreSelected,
                     onPermanentlyDelete: controller.permanentlyDeleteSelected,
                     onCreate: createAndFocus,
@@ -890,10 +886,6 @@ class NoteEditorPane extends ConsumerStatefulWidget {
     required this.note,
     required this.showTrash,
     required this.onChanged,
-    required this.onAttach,
-    required this.onExport,
-    required this.onQuickSave,
-    required this.onMoveToTrash,
     required this.onRestore,
     required this.onPermanentlyDelete,
     required this.onCreate,
@@ -909,10 +901,6 @@ class NoteEditorPane extends ConsumerStatefulWidget {
     String? body,
     List<String>? tags,
   }) onChanged;
-  final Future<void> Function() onAttach;
-  final Future<void> Function({NoteExportFormat? preferredFormat}) onExport;
-  final Future<void> Function() onQuickSave;
-  final Future<void> Function() onMoveToTrash;
   final Future<void> Function() onRestore;
   final Future<void> Function() onPermanentlyDelete;
   final Future<void> Function() onCreate;
@@ -1295,13 +1283,6 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane> {
         _EditorToolbar(
           strings: s,
           showTrash: widget.showTrash,
-          quickSaveLabel: s.save,
-          canQuickSave: note.lastExportPath != null,
-          onAttach: widget.onAttach,
-          onExport: widget.onExport,
-          onQuickSave: widget.onQuickSave,
-          onToggleFind: _toggleFind,
-          onMoveToTrash: widget.onMoveToTrash,
           onRestore: widget.onRestore,
           onPermanentlyDelete: widget.onPermanentlyDelete,
           onBack: widget.onBack,
@@ -1750,13 +1731,6 @@ class _EditorToolbar extends StatelessWidget {
   const _EditorToolbar({
     required this.strings,
     required this.showTrash,
-    required this.quickSaveLabel,
-    required this.canQuickSave,
-    required this.onAttach,
-    required this.onExport,
-    required this.onQuickSave,
-    required this.onToggleFind,
-    required this.onMoveToTrash,
     required this.onRestore,
     required this.onPermanentlyDelete,
     required this.onBack,
@@ -1764,13 +1738,6 @@ class _EditorToolbar extends StatelessWidget {
 
   final AppStrings strings;
   final bool showTrash;
-  final String quickSaveLabel;
-  final bool canQuickSave;
-  final Future<void> Function() onAttach;
-  final Future<void> Function({NoteExportFormat? preferredFormat}) onExport;
-  final Future<void> Function() onQuickSave;
-  final VoidCallback onToggleFind;
-  final Future<void> Function() onMoveToTrash;
   final Future<void> Function() onRestore;
   final Future<void> Function() onPermanentlyDelete;
   final VoidCallback? onBack;

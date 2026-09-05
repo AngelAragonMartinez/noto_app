@@ -40,11 +40,21 @@ void main() {
       }
     });
 
-    test('every command belongs to a menu that exists', () {
-      final placed = {
+    test('every command shown belongs to a menu that exists', () {
+      final shown = {
         for (final menu in NotoMenu.values) ...NotoCommand.inMenu(menu),
       };
-      expect(placed, containsAll(NotoCommand.values));
+      final expected =
+          NotoCommand.values.where((c) => !c.hidden).toSet();
+      expect(shown, expected);
+    });
+
+    // A command that draws no row is reachable only by its keys. Without one it
+    // would exist in the table and nowhere else.
+    test('a command with no row of its own still has a shortcut', () {
+      for (final command in NotoCommand.values.where((c) => c.hidden)) {
+        expect(command.shortcut, isNotNull, reason: '$command');
+      }
     });
   });
 

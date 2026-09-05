@@ -123,9 +123,25 @@ Future<void> runNotoCommand(
     case NotoCommand.importNote:
       await notes.importNoteFromFile();
     case NotoCommand.save:
-      await notes.saveSelected();
+      // Save writes over the file this note came from. With no such file, or
+      // one whose format no longer means anything, there is nothing to write
+      // over and the format has to be settled the same way Save as settles it.
+      if (await notes.saveSelected()) return;
+      if (!context.mounted) return;
+      final forNewFile = await _askExportFormat(context, s);
+      if (forNewFile == null) return;
+      await notes.exportSelected(format: forNewFile);
     case NotoCommand.saveAs:
-      await notes.exportSelected();
+      // Asks here rather than leaving it to the dialog's type dropdown. On the
+      // desktop portals the chosen filter is not reported back, so the only
+      // thing left to read is the extension of the name we suggested
+      // ourselves: picking Markdown there changed nothing and the note was
+      // written as text. Settling it first means the dialog is told what to
+      // save and never has to be asked.
+      if (!context.mounted) return;
+      final chosen = await _askExportFormat(context, s);
+      if (chosen == null) return;
+      await notes.exportSelected(format: chosen);
     case NotoCommand.attach:
       await notes.attachDocument();
     case NotoCommand.moveToTrash:
@@ -191,6 +207,27 @@ Future<void> runNotoCommand(
   }
 }
 
+/// Which format to save as, settled before the system dialog opens.
+Future<NoteExportFormat?> _askExportFormat(BuildContext context, AppStrings s) {
+  return showDialog<NoteExportFormat>(
+    context: context,
+    builder: (ctx) => SimpleDialog(
+      title: Text(s.saveAs),
+      children: [
+        for (final format in NoteExportFormat.values)
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(ctx).pop(format),
+            child: Text(s.exportFormatLabel(format)),
+          ),
+        SimpleDialogOption(
+          onPressed: () => Navigator.of(ctx).pop(),
+          child: Text(s.cancel),
+        ),
+      ],
+    ),
+  );
+}
+
 Future<void> _explainLockUnavailable(BuildContext context, AppStrings s) {
   return showDialog<void>(
     context: context,
@@ -234,7 +271,7 @@ Widget _saveAsSubmenu(BuildContext context, WidgetRef ref, AppStrings s) {
               ? () => unawaited(
                     ref
                         .read(notesControllerProvider.notifier)
-                        .exportSelected(preferredFormat: format),
+                        .exportSelected(format: format),
                   )
               : null,
           child: Text(s.exportFormatLabel(format)),

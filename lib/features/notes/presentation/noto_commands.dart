@@ -18,7 +18,8 @@ enum NotoCommand {
   importNote(NotoMenu.file, SingleActivator(LogicalKeyboardKey.keyO, control: true)),
   save(NotoMenu.file, SingleActivator(LogicalKeyboardKey.keyS, control: true)),
   saveAs(NotoMenu.file,
-      SingleActivator(LogicalKeyboardKey.keyS, control: true, shift: true)),
+      SingleActivator(LogicalKeyboardKey.keyS, control: true, shift: true),
+      hidden: true),
   attach(NotoMenu.file, SingleActivator(LogicalKeyboardKey.keyD, control: true)),
   moveToTrash(NotoMenu.file,
       SingleActivator(LogicalKeyboardKey.delete, control: true)),
@@ -61,13 +62,20 @@ enum NotoCommand {
   about(NotoMenu.help, null),
   ;
 
-  const NotoCommand(this.menu, this.shortcut);
+  const NotoCommand(this.menu, this.shortcut, {this.hidden = false});
 
   final NotoMenu menu;
   final SingleActivator? shortcut;
 
+  /// Keeps its shortcut but draws no row of its own.
+  ///
+  /// Save as is reached through a submenu naming the formats, because the
+  /// format has to be settled before the system dialog opens. Listing it twice
+  /// gave two identical rows, one of which could not honour the choice.
+  final bool hidden;
+
   static List<NotoCommand> inMenu(NotoMenu menu) =>
-      values.where((c) => c.menu == menu).toList();
+      values.where((c) => c.menu == menu && !c.hidden).toList();
 }
 
 /// Human-readable name of the key combination, e.g. "Ctrl+Shift+S".
